@@ -1,0 +1,1783 @@
+<!DOCTYPE html>
+<html lang="ru" class="dark scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SKY RIFT OS v4.2 — Закрытая система управления резиденцией-мостом (NDA Level 5)</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,400&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <!-- Lucide Icons (Reliable CDN) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.1/umd/lucide.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        serif: ['Cormorant Garamond', 'serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        obsidian: {
+                            950: '#06080b',
+                            900: '#0b0f15',
+                            800: '#111822',
+                            700: '#1a2433',
+                        },
+                        brass: {
+                            300: '#f3d29c',
+                            400: '#d4af37',
+                            500: '#c59b27',
+                            600: '#9a7418',
+                        },
+                        tactical: {
+                            emerald: '#10b981',
+                            amber: '#f59e0b',
+                            crimson: '#ef4444',
+                            cyan: '#06b6d4',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #06080b;
+            color: #e2e8f0;
+            overflow-x: hidden;
+            user-select: none;
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #06080b;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1e293b;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #d4af37;
+        }
+
+        .bg-tactical-grid {
+            background-image: 
+                linear-gradient(to right, rgba(212, 175, 55, 0.03) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(212, 175, 55, 0.03) 1px, transparent 1px);
+            background-size: 32px 32px;
+        }
+
+        .glass-card {
+            background: rgba(11, 15, 21, 0.85);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .glass-card-gold {
+            background: rgba(15, 20, 28, 0.9);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(212, 175, 55, 0.28);
+            box-shadow: 0 10px 35px -10px rgba(0, 0, 0, 0.7), inset 0 0 20px rgba(212, 175, 55, 0.04);
+        }
+
+        /* Режим STEALTH MODE */
+        body.stealth-active {
+            background-color: #030706;
+        }
+        body.stealth-active .glass-card,
+        body.stealth-active .glass-card-gold {
+            border-color: rgba(16, 185, 129, 0.28);
+            box-shadow: 0 0 25px rgba(16, 185, 129, 0.06);
+        }
+
+        /* Режимы камер CCTV */
+        .cam-filter-nvg {
+            filter: sepia(100%) hue-rotate(85deg) saturate(260%) contrast(135%) brightness(0.95);
+        }
+        .cam-filter-flir {
+            filter: invert(100%) sepia(80%) saturate(400%) hue-rotate(175deg) contrast(155%);
+        }
+
+        /* Сканлайн для камер */
+        .scanlines::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: repeating-linear-gradient(
+                to bottom,
+                transparent 0px,
+                transparent 2px,
+                rgba(0, 0, 0, 0.28) 3px
+            );
+            pointer-events: none;
+        }
+
+        /* Кастомные ползунки */
+        input[type=range] {
+            -webkit-appearance: none;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            height: 6px;
+            border-radius: 3px;
+            background: #1e293b;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 18px;
+            width: 18px;
+            border-radius: 50%;
+            background: #d4af37;
+            cursor: pointer;
+            margin-top: -6px;
+            border: 2px solid #fff;
+            box-shadow: 0 0 10px rgba(212, 175, 55, 0.8);
+        }
+
+        @keyframes pulseScan {
+            0%, 100% { transform: translateY(0%); opacity: 0.2; }
+            50% { transform: translateY(100%); opacity: 0.85; }
+        }
+        .biometric-laser {
+            animation: pulseScan 2.4s ease-in-out infinite;
+        }
+
+        @keyframes radarSweep {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .radar-sweep {
+            animation: radarSweep 5s linear infinite;
+            transform-origin: center;
+        }
+    </style>
+</head>
+<body class="bg-tactical-grid min-h-screen flex flex-col selection:bg-brass-500/30 selection:text-brass-300">
+
+    <!-- БИОМЕТРИЧЕСКИЙ ШЛЮЗ ДОПУСКА NDA LEVEL 5 -->
+    <div id="ndaLockScreen" class="fixed inset-0 z-[100] bg-obsidian-950/95 backdrop-blur-2xl flex items-center justify-center p-4 transition-opacity duration-500">
+        <div class="max-w-lg w-full glass-card-gold rounded-3xl p-8 relative overflow-hidden">
+            <!-- Фоновое превью IMG_8463 в окне допуска -->
+            <div class="relative h-40 rounded-2xl overflow-hidden mb-6 border border-white/10">
+                <img data-photo-slot="IMG_8463" alt="SKY RIFT Bridge Exterior" class="w-full h-full object-cover opacity-80">
+                <div class="absolute inset-0 bg-gradient-to-t from-obsidian-950 via-obsidian-950/40 to-transparent"></div>
+                <div class="absolute top-3 left-3 flex items-center gap-2 px-2.5 py-1 rounded-full bg-obsidian-950/80 border border-brass-400/40 font-mono text-[10px] text-brass-300">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                    <span>CLASSIFIED OBJECT // PROJ-8463-8474</span>
+                </div>
+                <div class="absolute bottom-3 left-3 right-3 flex items-end justify-between">
+                    <div>
+                        <div class="font-serif text-2xl font-bold text-white tracking-wider">SKY RIFT OS v4.2</div>
+                        <div class="font-mono text-[10px] text-slate-300">PRIVATE CANYON BRIDGE RESIDENCE • INCOGNITO</div>
+                    </div>
+                    <span class="font-mono text-[10px] px-2 py-0.5 rounded bg-red-500/20 text-red-300 border border-red-500/30">NDA LVL 5</span>
+                </div>
+            </div>
+
+            <!-- Мини-превью всех 4 засекреченных ракурсов (IMG_8463 - IMG_8474) -->
+            <div class="grid grid-cols-4 gap-2 mb-6">
+                <div class="relative h-14 rounded-lg overflow-hidden border border-brass-400/30">
+                    <img data-photo-slot="IMG_8463" alt="IMG_8463" class="w-full h-full object-cover">
+                    <span class="absolute bottom-0.5 right-1 font-mono text-[8px] text-white bg-black/70 px-1 rounded">8463</span>
+                </div>
+                <div class="relative h-14 rounded-lg overflow-hidden border border-brass-400/30">
+                    <img data-photo-slot="IMG_8472" alt="IMG_8472" class="w-full h-full object-cover">
+                    <span class="absolute bottom-0.5 right-1 font-mono text-[8px] text-white bg-black/70 px-1 rounded">8472</span>
+                </div>
+                <div class="relative h-14 rounded-lg overflow-hidden border border-brass-400/30">
+                    <img data-photo-slot="IMG_8473" alt="IMG_8473" class="w-full h-full object-cover">
+                    <span class="absolute bottom-0.5 right-1 font-mono text-[8px] text-white bg-black/70 px-1 rounded">8473</span>
+                </div>
+                <div class="relative h-14 rounded-lg overflow-hidden border border-brass-400/30">
+                    <img data-photo-slot="IMG_8474" alt="IMG_8474" class="w-full h-full object-cover">
+                    <span class="absolute bottom-0.5 right-1 font-mono text-[8px] text-white bg-black/70 px-1 rounded">8474</span>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-4 p-4 rounded-2xl bg-white/[0.03] border border-white/10 mb-6 relative overflow-hidden">
+                <div class="w-14 h-14 rounded-2xl bg-brass-500/15 border border-brass-400/40 flex items-center justify-center relative shrink-0 overflow-hidden">
+                    <i data-lucide="fingerprint" class="w-8 h-8 text-brass-400"></i>
+                    <div class="absolute inset-x-0 top-0 h-1 bg-emerald-400 biometric-laser"></div>
+                </div>
+                <div class="text-xs space-y-1">
+                    <div class="font-mono text-brass-300 uppercase">Протокол «Инкогнито» активен</div>
+                    <p class="text-slate-400 leading-relaxed">
+                        Геокоординаты ущелья скрыты. Доступ к цифровому двойнику, фотоархиву (4 ракурса) и телеметрии конструкций только для авторизованного владельца.
+                    </p>
+                </div>
+            </div>
+
+            <button onclick="unlockNDA()" class="w-full py-4 rounded-xl bg-gradient-to-r from-brass-500 via-brass-400 to-amber-500 hover:from-brass-400 hover:to-amber-400 text-obsidian-950 font-bold text-sm tracking-wide transition-all shadow-xl shadow-brass-500/20 flex items-center justify-center gap-2">
+                <i data-lucide="shield-check" class="w-5 h-5"></i>
+                <span>АВТОРИЗОВАТЬ КЛЮЧ ВЛАДЕЛЬЦА (NDA LEVEL 5)</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- МОДАЛЬНОЕ ОКНО: ПРОСМОТР ФОТО В ПОЛНОМ РАЗРЕШЕНИИ + ЗАГРУЗКА ОРИГИНАЛОВ -->
+    <div id="photoLightboxModal" class="fixed inset-0 z-[90] bg-obsidian-950/95 backdrop-blur-xl hidden items-center justify-center p-4">
+        <div class="max-w-6xl w-full glass-card-gold rounded-3xl overflow-hidden border border-brass-400/40 flex flex-col max-h-[92vh]">
+            <!-- Верхняя панель лайтбокса -->
+            <div class="px-6 py-4 border-b border-white/10 flex flex-wrap items-center justify-between gap-4 bg-obsidian-900/90">
+                <div class="flex items-center gap-3">
+                    <span class="px-2.5 py-1 rounded bg-brass-500/20 border border-brass-400/40 font-mono text-xs text-brass-300 font-semibold" id="lightboxCode">IMG_8463</span>
+                    <div>
+                        <h3 class="font-serif text-xl font-bold text-white" id="lightboxTitle">Экстерьер: Стальной дом-мост над каньоном</h3>
+                        <p class="font-mono text-[11px] text-slate-400" id="lightboxSubtitle">Пролет 68 м • Диагональный подкос 42 м • Лифт 54 м к каноэ • Хелипад и 3 суперкара</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <label class="cursor-pointer px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/15 font-mono text-xs text-brass-300 flex items-center gap-2 transition-all">
+                        <i data-lucide="upload" class="w-4 h-4"></i>
+                        <span>Подставить свой файл для этого кадра</span>
+                        <input type="file" accept="image/*" class="hidden" onchange="uploadSinglePhotoForCurrentLightbox(event)">
+                    </label>
+                    <button onclick="closePhotoLightbox()" class="p-2 rounded-xl bg-white/5 hover:bg-red-500/20 text-slate-300 hover:text-red-300 border border-white/10">
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Основное изображение и техническая экспликация -->
+            <div class="grid lg:grid-cols-12 flex-1 overflow-y-auto">
+                <div class="lg:col-span-8 bg-black relative flex items-center justify-center min-h-[340px] sm:min-h-[480px]">
+                    <img id="lightboxMainImage" src="" alt="SKY RIFT Architectural Photo" class="w-full h-full max-h-[68vh] object-contain">
+                    <!-- Переключатели влево/вправо -->
+                    <button onclick="stepLightbox(-1)" class="absolute left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-obsidian-950/80 hover:bg-brass-500 hover:text-obsidian-950 text-white border border-white/15 transition-all">
+                        <i data-lucide="chevron-left" class="w-5 h-5"></i>
+                    </button>
+                    <button onclick="stepLightbox(1)" class="absolute right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-obsidian-950/80 hover:bg-brass-500 hover:text-obsidian-950 text-white border border-white/15 transition-all">
+                        <i data-lucide="chevron-right" class="w-5 h-5"></i>
+                    </button>
+                </div>
+                <div class="lg:col-span-4 p-6 flex flex-col justify-between bg-obsidian-900/75 border-l border-white/10">
+                    <div class="space-y-4">
+                        <div class="font-mono text-xs uppercase text-brass-400">Архитектурно-инженерная экспликация кадра</div>
+                        <p class="text-slate-300 text-sm leading-relaxed" id="lightboxDescription"></p>
+                        <div class="space-y-2 pt-2" id="lightboxSpecs"></div>
+                    </div>
+
+                    <!-- Мини-лента переключения 4 фотографий -->
+                    <div class="pt-6 border-t border-white/10 mt-6">
+                        <div class="font-mono text-[10px] uppercase text-slate-400 mb-2">Все 4 засекреченных ракурса проекта:</div>
+                        <div class="grid grid-cols-4 gap-2">
+                            <button onclick="openPhotoLightbox('IMG_8463')" class="rounded-lg overflow-hidden border border-white/15 hover:border-brass-400 h-14 relative group">
+                                <img data-photo-slot="IMG_8463" alt="8463" class="w-full h-full object-cover">
+                                <span class="absolute inset-x-0 bottom-0 bg-black/75 font-mono text-[9px] text-white text-center">8463</span>
+                            </button>
+                            <button onclick="openPhotoLightbox('IMG_8472')" class="rounded-lg overflow-hidden border border-white/15 hover:border-brass-400 h-14 relative group">
+                                <img data-photo-slot="IMG_8472" alt="8472" class="w-full h-full object-cover">
+                                <span class="absolute inset-x-0 bottom-0 bg-black/75 font-mono text-[9px] text-white text-center">8472</span>
+                            </button>
+                            <button onclick="openPhotoLightbox('IMG_8473')" class="rounded-lg overflow-hidden border border-white/15 hover:border-brass-400 h-14 relative group">
+                                <img data-photo-slot="IMG_8473" alt="8473" class="w-full h-full object-cover">
+                                <span class="absolute inset-x-0 bottom-0 bg-black/75 font-mono text-[9px] text-white text-center">8473</span>
+                            </button>
+                            <button onclick="openPhotoLightbox('IMG_8474')" class="rounded-lg overflow-hidden border border-white/15 hover:border-brass-400 h-14 relative group">
+                                <img data-photo-slot="IMG_8474" alt="8474" class="w-full h-full object-cover">
+                                <span class="absolute inset-x-0 bottom-0 bg-black/75 font-mono text-[9px] text-white text-center">8474</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ВЕРХНИЙ ТАКТИЧЕСКИЙ СТАТУС-БАР -->
+    <header class="sticky top-0 z-40 glass-card border-b border-white/10 px-4 lg:px-8 h-16 flex items-center justify-between gap-3">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-brass-500/25 to-obsidian-800 border border-brass-400/50 flex items-center justify-center shadow-lg">
+                <i data-lucide="shield" class="w-5 h-5 text-brass-400"></i>
+            </div>
+            <div>
+                <div class="flex items-center gap-2">
+                    <span class="font-serif text-lg sm:text-xl font-bold tracking-widest text-white">SKY RIFT</span>
+                    <span class="font-mono text-[10px] px-2 py-0.5 rounded bg-brass-500/20 text-brass-300 border border-brass-400/30">OS v4.2</span>
+                    <span class="hidden sm:inline-flex items-center gap-1 font-mono text-[10px] px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                        INCOGNITO NDA-5
+                    </span>
+                </div>
+                <div class="font-mono text-[10px] text-slate-400 hidden sm:block">
+                    КООРДИНАТЫ: [СКРЫТО ПРОТОКОЛОМ] • ВЫСОТА НАД РЕКОЙ: 54.0 М • ПРОЛЕТ МОСТА: 68.0 М
+                </div>
+            </div>
+        </div>
+
+        <!-- Быстрые кнопки: Фотоархив + Пакетная загрузка оригиналов + STEALTH MODE -->
+        <div class="flex items-center gap-2 sm:gap-3">
+            <!-- Кнопка открытия галереи 4 фото -->
+            <button onclick="openPhotoLightbox('IMG_8463')" class="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/15 font-mono text-xs text-slate-200 flex items-center gap-2 transition-all">
+                <i data-lucide="images" class="w-4 h-4 text-brass-400"></i>
+                <span class="hidden md:inline">Фотодосье (4 кадра)</span>
+            </button>
+
+            <!-- Кнопка привязки локальных файлов пользователя -->
+            <label class="cursor-pointer px-3 py-2 rounded-xl bg-brass-500/15 hover:bg-brass-500/25 border border-brass-400/40 font-mono text-xs text-brass-300 flex items-center gap-2 transition-all" title="Вы можете выбрать сразу 4 файла с вашего устройства (IMG_8463, IMG_8472, IMG_8473, IMG_8474)">
+                <i data-lucide="folder-up" class="w-4 h-4"></i>
+                <span class="hidden lg:inline">Загрузить оригиналы фото (4)</span>
+                <input type="file" id="batchPhotoInput" accept="image/*" multiple class="hidden" onchange="handleBatchPhotoUpload(event)">
+            </label>
+
+            <!-- Тумблер STEALTH MODE -->
+            <button id="headerStealthBtn" onclick="toggleGlobalStealth()" class="px-3.5 py-2 rounded-xl bg-white/5 hover:bg-emerald-500/20 border border-white/15 font-mono text-xs text-slate-200 flex items-center gap-2 transition-all">
+                <i data-lucide="eye-off" class="w-4 h-4 text-emerald-400"></i>
+                <span id="stealthStatusText">STEALTH: OFF</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- ОСНОВНОЙ КОНТЕЙНЕР ПРИЛОЖЕНИЯ (САЙДБАР + РАБОЧАЯ ОБЛАСТЬ) -->
+    <div class="flex-1 flex overflow-hidden">
+        
+        <!-- ЛЕВАЯ НАВИГАЦИОННАЯ ПАНЕЛЬ (ДЕСКТОП) -->
+        <aside class="hidden lg:flex flex-col w-72 glass-card border-r border-white/10 p-4 justify-between shrink-0">
+            <div class="space-y-6">
+                <div>
+                    <div class="font-mono text-[10px] uppercase tracking-widest text-slate-500 px-3 mb-2">Терминалы управления</div>
+                    <nav class="space-y-1.5" id="desktopNav">
+                        <button onclick="switchAppTab('command')" data-tab="command" class="app-nav-btn w-full flex items-center gap-3 px-3.5 py-3 rounded-xl font-medium text-sm text-left transition-all bg-brass-500/20 text-brass-300 border border-brass-400/40">
+                            <i data-lucide="cpu" class="w-4 h-4 shrink-0"></i>
+                            <div>
+                                <div class="leading-none">Командный центр</div>
+                                <span class="font-mono text-[10px] text-slate-400">Digital Twin & Галерея</span>
+                            </div>
+                        </button>
+                        <button onclick="switchAppTab('zones')" data-tab="zones" class="app-nav-btn w-full flex items-center gap-3 px-3.5 py-3 rounded-xl font-medium text-sm text-left text-slate-300 hover:bg-white/5 border border-transparent transition-all">
+                            <i data-lucide="Sparkles" class="w-4 h-4 shrink-0"></i>
+                            <div>
+                                <div class="leading-none">Интерьеры & Умный дом</div>
+                                <span class="font-mono text-[10px] text-slate-400">4 фото-зоны (8463–8474)</span>
+                            </div>
+                        </button>
+                        <button onclick="switchAppTab('construction')" data-tab="construction" class="app-nav-btn w-full flex items-center gap-3 px-3.5 py-3 rounded-xl font-medium text-sm text-left text-slate-300 hover:bg-white/5 border border-transparent transition-all">
+                            <i data-lucide="hard-hat" class="w-4 h-4 shrink-0"></i>
+                            <div>
+                                <div class="leading-none">Строительство & КР</div>
+                                <span class="font-mono text-[10px] text-slate-400">Технадзор & Тензометрия</span>
+                            </div>
+                        </button>
+                        <button onclick="switchAppTab('security')" data-tab="security" class="app-nav-btn w-full flex items-center gap-3 px-3.5 py-3 rounded-xl font-medium text-sm text-left text-slate-300 hover:bg-white/5 border border-transparent transition-all">
+                            <i data-lucide="cctv" class="w-4 h-4 shrink-0"></i>
+                            <div>
+                                <div class="leading-none">Камеры & Периметр</div>
+                                <span class="font-mono text-[10px] text-slate-400">4 ракурса HD / NVG / FLIR</span>
+                            </div>
+                        </button>
+                        <button onclick="switchAppTab('finance')" data-tab="finance" class="app-nav-btn w-full flex items-center gap-3 px-3.5 py-3 rounded-xl font-medium text-sm text-left text-slate-300 hover:bg-white/5 border border-transparent transition-all">
+                            <i data-lucide="landmark" class="w-4 h-4 shrink-0"></i>
+                            <div>
+                                <div class="leading-none">Финансы & Консьерж</div>
+                                <span class="font-mono text-[10px] text-slate-400">Эскроу & Связь с ГИПом</span>
+                            </div>
+                        </button>
+                    </nav>
+                </div>
+
+                <!-- Визуальный док всех 4 фотографий прямо в сайдбаре -->
+                <div class="p-3.5 rounded-2xl bg-white/[0.02] border border-white/10 space-y-2.5">
+                    <div class="flex items-center justify-between">
+                        <span class="font-mono text-[10px] uppercase text-brass-400">Фотоархив объекта</span>
+                        <span class="font-mono text-[10px] text-emerald-400">4/4 HD</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div onclick="openPhotoLightbox('IMG_8463')" class="cursor-pointer group relative rounded-lg overflow-hidden border border-white/10 hover:border-brass-400 h-16">
+                            <img data-photo-slot="IMG_8463" alt="Мост IMG_8463" class="w-full h-full object-cover group-hover:scale-105 transition-transform">
+                            <div class="absolute inset-x-0 bottom-0 bg-black/75 px-1.5 py-0.5 font-mono text-[9px] text-white truncate">8463 • Мост</div>
+                        </div>
+                        <div onclick="openPhotoLightbox('IMG_8472')" class="cursor-pointer group relative rounded-lg overflow-hidden border border-white/10 hover:border-brass-400 h-16">
+                            <img data-photo-slot="IMG_8472" alt="Гостиная IMG_8472" class="w-full h-full object-cover group-hover:scale-105 transition-transform">
+                            <div class="absolute inset-x-0 bottom-0 bg-black/75 px-1.5 py-0.5 font-mono text-[9px] text-white truncate">8472 • Салон</div>
+                        </div>
+                        <div onclick="openPhotoLightbox('IMG_8473')" class="cursor-pointer group relative rounded-lg overflow-hidden border border-white/10 hover:border-brass-400 h-16">
+                            <img data-photo-slot="IMG_8473" alt="Спальня IMG_8473" class="w-full h-full object-cover group-hover:scale-105 transition-transform">
+                            <div class="absolute inset-x-0 bottom-0 bg-black/75 px-1.5 py-0.5 font-mono text-[9px] text-white truncate">8473 • Спальня</div>
+                        </div>
+                        <div onclick="openPhotoLightbox('IMG_8474')" class="cursor-pointer group relative rounded-lg overflow-hidden border border-white/10 hover:border-brass-400 h-16">
+                            <img data-photo-slot="IMG_8474" alt="SPA Ванная IMG_8474" class="w-full h-full object-cover group-hover:scale-105 transition-transform">
+                            <div class="absolute inset-x-0 bottom-0 bg-black/75 px-1.5 py-0.5 font-mono text-[9px] text-white truncate">8474 • Ванная</div>
+                        </div>
+                    </div>
+                    <p class="text-[11px] text-slate-400 leading-snug">
+                        Нажмите на любой кадр для полноэкранного разбора узлов.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Статус автономности внизу сайдбара -->
+            <div class="p-3.5 rounded-2xl bg-emerald-950/20 border border-emerald-500/30 space-y-2">
+                <div class="flex items-center justify-between font-mono text-xs">
+                    <span class="text-emerald-400">АВТОНОМНОСТЬ</span>
+                    <span class="text-white font-semibold">98.4% (365 сут.)</span>
+                </div>
+                <div class="w-full h-1.5 rounded-full bg-obsidian-950 overflow-hidden">
+                    <div class="h-full bg-gradient-to-r from-emerald-500 to-brass-400 w-[98%]"></div>
+                </div>
+                <div class="font-mono text-[10px] text-slate-400 flex justify-between">
+                    <span>ГЭС + Геотермия</span>
+                    <span>LiFePO4 480 кВт·ч</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- ГЛАВНАЯ ОБЛАСТЬ КОНТЕНТА -->
+        <main class="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 pb-24 lg:pb-10 space-y-8">
+
+            <!-- ПОЛОСА ВИЗУАЛЬНОГО ДОСЬЕ (ВСЕ 4 ФОТОГРАФИИ ДОСТУПНЫ СРАЗУ НАВЕРХУ) -->
+            <section class="glass-card-gold rounded-2xl p-4 sm:p-5">
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-brass-400"></span>
+                        <h2 class="font-mono text-xs uppercase tracking-wider text-brass-300">Визуальная верификация объекта SKY RIFT — Полное фотодосье (4 ракурса)</h2>
+                    </div>
+                    <span class="font-mono text-[11px] text-slate-400">Кликните на любую фотографию для открытия деталей или замены файла</span>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                    <!-- Карточка Фото 1: IMG_8463 -->
+                    <div onclick="openPhotoLightbox('IMG_8463')" class="group cursor-pointer rounded-xl overflow-hidden border border-white/15 hover:border-brass-400 bg-obsidian-900/90 transition-all flex flex-col">
+                        <div class="relative h-44 overflow-hidden">
+                            <img data-photo-slot="IMG_8463" alt="IMG_8463 Стальной мост-резиденция" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                            <div class="absolute top-2.5 left-2.5 px-2 py-0.5 rounded bg-obsidian-950/85 border border-brass-400/40 font-mono text-[10px] text-brass-300">IMG_8463 • ЭКСТЕРЬЕР</div>
+                            <div class="absolute bottom-2 right-2 px-2 py-0.5 rounded bg-black/75 font-mono text-[10px] text-emerald-300">Пролет 68м / Лифт 54м</div>
+                        </div>
+                        <div class="p-3.5 flex-1 flex flex-col justify-between">
+                            <div>
+                                <div class="font-serif text-base font-bold text-white group-hover:text-brass-300 transition-colors">1. Стальной дом-мост над рекой</div>
+                                <p class="text-xs text-slate-400 mt-1 line-clamp-2">Диагональный стальной подкос в левую скалу, стеклянная шахта лифта к пирсу с каноэ, вертолет на утесе и паркинг на 3 авто.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Карточка Фото 2: IMG_8472 -->
+                    <div onclick="openPhotoLightbox('IMG_8472')" class="group cursor-pointer rounded-xl overflow-hidden border border-white/15 hover:border-brass-400 bg-obsidian-900/90 transition-all flex flex-col">
+                        <div class="relative h-44 overflow-hidden">
+                            <img data-photo-slot="IMG_8472" alt="IMG_8472 Двусветная гостиная со стеклянным полом" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                            <div class="absolute top-2.5 left-2.5 px-2 py-0.5 rounded bg-obsidian-950/85 border border-brass-400/40 font-mono text-[10px] text-brass-300">IMG_8472 • ИНТЕРЬЕР САЛОНА</div>
+                            <div class="absolute bottom-2 right-2 px-2 py-0.5 rounded bg-black/75 font-mono text-[10px] text-sky-300">Триплекс-пол 82 мм</div>
+                        </div>
+                        <div class="p-3.5 flex-1 flex flex-col justify-between">
+                            <div>
+                                <div class="font-serif text-base font-bold text-white group-hover:text-brass-300 transition-colors">2. Гостиная со стеклянным полом</div>
+                                <p class="text-xs text-slate-400 mt-1 line-clamp-2">Прозрачный пол прямо над водопадом каньона, камин из черного сланца, полукруглый диван букле и травертиновый стол с пампасной травой.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Карточка Фото 3: IMG_8473 -->
+                    <div onclick="openPhotoLightbox('IMG_8473')" class="group cursor-pointer rounded-xl overflow-hidden border border-white/15 hover:border-brass-400 bg-obsidian-900/90 transition-all flex flex-col">
+                        <div class="relative h-44 overflow-hidden">
+                            <img data-photo-slot="IMG_8473" alt="IMG_8473 Парящая Мастер-спальня" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                            <div class="absolute top-2.5 left-2.5 px-2 py-0.5 rounded bg-obsidian-950/85 border border-brass-400/40 font-mono text-[10px] text-brass-300">IMG_8473 • МАСТЕР-СЬЮТ</div>
+                            <div class="absolute bottom-2 right-2 px-2 py-0.5 rounded bg-black/75 font-mono text-[10px] text-amber-300">Парящая палуба</div>
+                        </div>
+                        <div class="p-3.5 flex-1 flex flex-col justify-between">
+                            <div>
+                                <div class="font-serif text-base font-bold text-white group-hover:text-brass-300 transition-colors">3. Консольная Мастер-спальня</div>
+                                <p class="text-xs text-slate-400 mt-1 line-clamp-2">Остекление уходит ниже деревянной палубы пола (вид на туманные ели под кроватью), графитовое изголовье с латунью и стеклянный куб гардеробной.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Карточка Фото 4: IMG_8474 -->
+                    <div onclick="openPhotoLightbox('IMG_8474')" class="group cursor-pointer rounded-xl overflow-hidden border border-white/15 hover:border-brass-400 bg-obsidian-900/90 transition-all flex flex-col">
+                        <div class="relative h-44 overflow-hidden">
+                            <img data-photo-slot="IMG_8474" alt="IMG_8474 Двусветная ванная и SPA у водопада" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                            <div class="absolute top-2.5 left-2.5 px-2 py-0.5 rounded bg-obsidian-950/85 border border-brass-400/40 font-mono text-[10px] text-brass-300">IMG_8474 • SPA-САНКТУАРИЙ</div>
+                            <div class="absolute bottom-2 right-2 px-2 py-0.5 rounded bg-black/75 font-mono text-[10px] text-emerald-300">Чаша из базальта</div>
+                        </div>
+                        <div class="p-3.5 flex-1 flex flex-col justify-between">
+                            <div>
+                                <div class="font-serif text-base font-bold text-white group-hover:text-brass-300 transition-colors">4. Двусветная Мастер-ванная & SPA</div>
+                                <p class="text-xs text-slate-400 mt-1 line-clamp-2">Матовая черная каменная ванна перед двухэтажным окном на водопад, стены из травертина и мрамора Nero Marquina, паровая душевая с латунью.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- =================================================================== -->
+            <!-- ВКЛАДКА 1: КОМАНДНЫЙ ЦЕНТР & ЦИФРОВОЙ ДВОЙНИК (COMMAND CENTER)      -->
+            <!-- =================================================================== -->
+            <div id="tab-command" class="app-tab-section space-y-8">
+                <div class="grid xl:grid-cols-12 gap-8 items-start">
+                    
+                    <!-- Левая часть (8 колонок): Интерактивный Digital Twin + переключатель Режима Фото/Чертеж -->
+                    <div class="xl:col-span-8 glass-card rounded-3xl p-6 border border-white/10 space-y-5">
+                        <div class="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-white/10">
+                            <div>
+                                <span class="font-mono text-xs text-brass-400 uppercase">DIGITAL TWIN // ТЕЛЕМЕТРИЯ МОСТА В РЕАЛЬНОМ ВРЕМЕНИ</span>
+                                <h1 class="font-serif text-2xl sm:text-3xl font-bold text-white mt-0.5">Интерактивная схема 68-метрового дома-моста SKY RIFT</h1>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <button onclick="openPhotoLightbox('IMG_8463')" class="px-3 py-1.5 rounded-lg bg-brass-500/20 border border-brass-400/40 font-mono text-xs text-brass-300 hover:bg-brass-500/30 flex items-center gap-1.5">
+                                    <i data-lucide="maximize-2" class="w-3.5 h-3.5"></i>
+                                    <span>Сравнить с фото IMG_8463</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Интерактивный SVG Цифровой Двойник моста -->
+                        <div class="relative rounded-2xl overflow-hidden bg-gradient-to-b from-[#0f1922] via-[#0b131b] to-[#060a0f] border border-white/10 p-3">
+                            <svg viewBox="0 0 820 460" class="w-full h-auto" id="digitalTwinSvg">
+                                <defs>
+                                    <linearGradient id="canyonMist" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="0%" stop-color="#1e2f3d" stop-opacity="0.7"/>
+                                        <stop offset="50%" stop-color="#0f1b24" stop-opacity="0.85"/>
+                                        <stop offset="100%" stop-color="#070c12" stop-opacity="0.98"/>
+                                    </linearGradient>
+                                    <linearGradient id="warmRoomGlow" x1="0" y1="0" x2="1" y2="1">
+                                        <stop offset="0%" stop-color="#fbbf24" stop-opacity="0.92"/>
+                                        <stop offset="100%" stop-color="#b45309" stop-opacity="0.75"/>
+                                    </linearGradient>
+                                </defs>
+
+                                <!-- Фон туманного хвойного ущелья -->
+                                <rect width="820" height="460" fill="url(#canyonMist)"/>
+                                <!-- Силуэты вековых елей на заднем плане -->
+                                <polygon points="90,40 65,130 115,130" fill="#122421" opacity="0.7"/>
+                                <polygon points="140,55 115,140 165,140" fill="#152b26" opacity="0.8"/>
+                                <polygon points="650,35 625,125 675,125" fill="#122421" opacity="0.7"/>
+                                <polygon points="710,50 685,135 735,135" fill="#152b26" opacity="0.8"/>
+
+                                <!-- Бурная горная река и водопад по центру каньона -->
+                                <path d="M380,190 Q395,280 360,360 Q335,415 390,460 L485,460 Q450,400 445,345 Q435,260 415,190 Z" fill="#0ea5e9" fill-opacity="0.22"/>
+                                <path d="M392,195 L385,460" stroke="#7dd3fc" stroke-width="2" stroke-dasharray="8,6" opacity="0.55"/>
+                                <path d="M408,195 L425,460" stroke="#e0f2fe" stroke-width="1.5" stroke-dasharray="5,8" opacity="0.65"/>
+
+                                <!-- Левый скальный массив в зеленом мху -->
+                                <path d="M0,135 L235,135 L255,215 L230,335 L265,460 L0,460 Z" fill="#16202a" stroke="#2c3e50" stroke-width="1.5"/>
+                                <path d="M0,135 L235,135 L245,165 L0,165 Z" fill="#1f3a2e" opacity="0.8"/>
+
+                                <!-- Правый скальный массив с вертолетной площадкой -->
+                                <path d="M565,145 L820,145 L820,460 L545,460 L560,310 L545,210 Z" fill="#16202a" stroke="#2c3e50" stroke-width="1.5"/>
+                                <path d="M565,145 L820,145 L820,175 L560,175 Z" fill="#1f3a2e" opacity="0.8"/>
+
+                                <!-- ДИАГОНАЛЬНЫЙ СТАЛЬНОЙ ПОДКОС-РАСПОРКА (42 м) из левой скалы к центру моста -->
+                                <g>
+                                    <line x1="238" y1="345" x2="465" y2="150" stroke="#090d12" stroke-width="18"/>
+                                    <line x1="238" y1="345" x2="465" y2="150" stroke="#334155" stroke-width="2" stroke-dasharray="10,5"/>
+                                    <!-- Поперечные связи подкоса как на фото IMG_8463 -->
+                                    <line x1="335" y1="262" x2="425" y2="150" stroke="#1e293b" stroke-width="6"/>
+                                    <circle cx="350" cy="248" r="5" fill="#10b981"/>
+                                    <text x="255" y="295" fill="#94a3b8" font-family="JetBrains Mono" font-size="9" transform="rotate(-39 255,295)">СТАЛЬНОЙ ПОДКОС 42М (S460ML)</text>
+                                </g>
+
+                                <!-- ВЕРТИКАЛЬНАЯ 54-МЕТРОВАЯ СТЕКЛЯННАЯ ШАХТА ЛИФТА К ПРИЧАЛУ С КАНОЭ -->
+                                <g>
+                                    <rect x="495" y="110" width="44" height="320" fill="#0b1520" fill-opacity="0.75" stroke="#38bdf8" stroke-width="1.5"/>
+                                    <!-- Горизонтальные ярусы шахты лифта -->
+                                    <line x1="495" y1="170" x2="539" y2="170" stroke="#334155" stroke-width="1.5"/>
+                                    <line x1="495" y1="225" x2="539" y2="225" stroke="#334155" stroke-width="1.5"/>
+                                    <line x1="495" y1="280" x2="539" y2="280" stroke="#334155" stroke-width="1.5"/>
+                                    <line x1="495" y1="335" x2="539" y2="335" stroke="#334155" stroke-width="1.5"/>
+                                    <line x1="495" y1="390" x2="539" y2="390" stroke="#334155" stroke-width="1.5"/>
+
+                                    <!-- Анимированная кабина лифта -->
+                                    <g id="svgElevatorCab" style="transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);" transform="translate(0, 0)">
+                                        <rect x="499" y="122" width="36" height="38" rx="3" fill="url(#warmRoomGlow)" stroke="#fbbf24" stroke-width="2"/>
+                                        <text x="505" y="145" fill="#090d12" font-family="JetBrains Mono" font-weight="bold" font-size="9" id="svgElevatorLabel">L5</text>
+                                    </g>
+
+                                    <!-- Деревянный речной пирс и КАНОЭ у подножия лифта (L0) -->
+                                    <rect x="468" y="426" width="76" height="8" rx="2" fill="#78350f" stroke="#d97706" stroke-width="1"/>
+                                    <!-- Оранжево-кедровое каноэ на воде (как на IMG_8463) -->
+                                    <path d="M425,432 Q445,442 468,432 Q445,427 425,432 Z" fill="#ea580c" stroke="#fed7aa" stroke-width="1"/>
+                                    <text x="415" y="450" fill="#fdba74" font-family="JetBrains Mono" font-size="9">ПИРС L0 + КАНОЭ</text>
+                                </g>
+
+                                <!-- ОСНОВНОЙ ПРОЛЕТ СТАЛЬНОГО ДОМА-МОСТА (68 м) -->
+                                <g>
+                                    <!-- Главная коробчатая стальная балка моста -->
+                                    <rect x="195" y="142" width="435" height="14" fill="#0f172a" stroke="#475569" stroke-width="1.5"/>
+
+                                    <!-- Жилые отсеки на мосту (слева направо: Мастер-спальня IMG_8473, Салон со стеклянным полом IMG_8472, SPA-ванная IMG_8474, Холл лифта) -->
+                                    <!-- Крыша-шале с двускатным фронтоном -->
+                                    <path d="M185,102 L405,102 L435,75 L515,62 L615,102 Z" fill="#0f172a" stroke="#64748b" stroke-width="1.5"/>
+
+                                    <!-- 1. Зона Мастер-спальни (IMG_8473) слева -->
+                                    <g onclick="openPhotoLightbox('IMG_8473')" class="cursor-pointer hover:opacity-90">
+                                        <rect x="210" y="104" width="105" height="38" fill="url(#warmRoomGlow)" class="interior-glow-rect"/>
+                                        <!-- Остекление ниже палубы пола (эффект парящей спальни) -->
+                                        <rect x="215" y="142" width="95" height="12" fill="#38bdf8" fill-opacity="0.3" stroke="#7dd3fc" stroke-width="1"/>
+                                        <text x="220" y="126" fill="#090d12" font-family="JetBrains Mono" font-weight="bold" font-size="9">IMG_8473 СПАЛЬНЯ</text>
+                                    </g>
+
+                                    <!-- 2. Двусветная гостиная со стеклянным полом над водопадом (IMG_8472) в центре -->
+                                    <g onclick="openPhotoLightbox('IMG_8472')" class="cursor-pointer hover:opacity-90">
+                                        <rect x="322" y="92" width="115" height="50" fill="url(#warmRoomGlow)" class="interior-glow-rect"/>
+                                        <!-- Прозрачный стеклянный пол прямо над водопадом -->
+                                        <rect id="svgGlassFloorRect" x="332" y="142" width="95" height="14" fill="#38bdf8" fill-opacity="0.75" stroke="#e0f2fe" stroke-width="1.5"/>
+                                        <text x="332" y="122" fill="#090d12" font-family="JetBrains Mono" font-weight="bold" font-size="9">IMG_8472 САЛОН</text>
+                                    </g>
+
+                                    <!-- 3. Двусветная Мастер-ванная & SPA у водопада (IMG_8474) -->
+                                    <g onclick="openPhotoLightbox('IMG_8474')" class="cursor-pointer hover:opacity-90">
+                                        <rect x="442" y="82" width="50" height="60" fill="url(#warmRoomGlow)" class="interior-glow-rect"/>
+                                        <text x="445" y="115" fill="#090d12" font-family="JetBrains Mono" font-weight="bold" font-size="8">IMG_8474</text>
+                                        <text x="448" y="126" fill="#090d12" font-family="JetBrains Mono" font-weight="bold" font-size="8">SPA</text>
+                                    </g>
+
+                                    <!-- 4. Правое крыло + Крытый паркинг на 3 суперкара и вертолетная площадка (IMG_8463) -->
+                                    <g onclick="openPhotoLightbox('IMG_8463')" class="cursor-pointer">
+                                        <!-- Павильон гаража на 3 автомобиля -->
+                                        <rect x="645" y="96" width="155" height="8" fill="#1e293b" stroke="#64748b" stroke-width="1"/>
+                                        <line x1="665" y1="104" x2="665" y2="142" stroke="#475569" stroke-width="4"/>
+                                        <line x1="780" y1="104" x2="780" y2="142" stroke="#475569" stroke-width="4"/>
+                                        <!-- Силуэты 3 автомобилей -->
+                                        <rect x="635" y="132" width="36" height="10" rx="3" fill="#94a3b8"/>
+                                        <rect x="688" y="132" width="36" height="10" rx="3" fill="#d4af37"/>
+                                        <rect x="738" y="132" width="38" height="10" rx="3" fill="#475569"/>
+                                        <text x="655" y="90" fill="#cbd5e1" font-family="JetBrains Mono" font-size="9">ПАРКИНГ (3 СУПЕРКАРА)</text>
+
+                                        <!-- Консольная вертолетная площадка и черный вертолет справа -->
+                                        <polygon points="650,195 795,195 810,210 635,210" fill="#334155" stroke="#94a3b8" stroke-width="1.5"/>
+                                        <!-- Силуэт черного вертолета -->
+                                        <ellipse cx="720" cy="184" rx="28" ry="10" fill="#0f172a" stroke="#38bdf8" stroke-width="1.2"/>
+                                        <line x1="748" y1="184" x2="782" y2="176" stroke="#0f172a" stroke-width="4"/>
+                                        <line x1="680" y1="170" x2="760" y2="170" stroke="#94a3b8" stroke-width="2"/>
+                                        <text x="668" y="226" fill="#38bdf8" font-family="JetBrains Mono" font-size="9">ХЕЛИПАД H1 • EC145 STEALTH</text>
+                                    </g>
+                                </g>
+                            </svg>
+
+                            <!-- Интерактивные плашки поверх схемы -->
+                            <div class="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs font-mono text-slate-400 px-2">
+                                <span>Нажмите на любую зону моста на чертеже, чтобы открыть соответствующий кадр (`IMG_8463` – `IMG_8474`)</span>
+                                <span class="text-emerald-400" id="twinStatusReadout">СТАТУС КОНСТРУКЦИИ: НОРМА (НАГРУЗКА ПОДКОСА 412 ТС)</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Правая часть (4 колонки): Пульт оперативного управления узлами моста -->
+                    <div class="xl:col-span-4 space-y-5">
+                        
+                        <!-- Управление 54-метровым панорамным лифтом -->
+                        <div class="glass-card rounded-2xl p-5 border border-white/10 space-y-4">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-2">
+                                    <i data-lucide="arrow-up-down" class="w-4 h-4 text-brass-400"></i>
+                                    <span class="font-mono text-xs uppercase text-white font-semibold">Вертикальный лифт в ущелье (54 м)</span>
+                                </div>
+                                <span class="font-mono text-xs px-2 py-0.5 rounded bg-brass-500/20 text-brass-300" id="elevatorLevelBadge">Уровень L5 (Мост)</span>
+                            </div>
+                            <p class="text-xs text-slate-400">
+                                Стеклянная шахта связывает жилой пролет моста (+54.0 м) с деревянным речным причалом и каноэ (0.0 м).
+                            </p>
+                            <div class="grid grid-cols-6 gap-1.5" id="elevatorButtons">
+                                <button onclick="moveElevator(5)" class="elev-btn py-2 rounded-lg font-mono text-xs bg-brass-500 text-obsidian-950 font-bold">L5</button>
+                                <button onclick="moveElevator(4)" class="elev-btn py-2 rounded-lg font-mono text-xs bg-white/5 hover:bg-white/10 text-slate-300">L4</button>
+                                <button onclick="moveElevator(3)" class="elev-btn py-2 rounded-lg font-mono text-xs bg-white/5 hover:bg-white/10 text-slate-300">L3</button>
+                                <button onclick="moveElevator(2)" class="elev-btn py-2 rounded-lg font-mono text-xs bg-white/5 hover:bg-white/10 text-slate-300">L2</button>
+                                <button onclick="moveElevator(1)" class="elev-btn py-2 rounded-lg font-mono text-xs bg-white/5 hover:bg-white/10 text-slate-300">L1</button>
+                                <button onclick="moveElevator(0)" class="elev-btn py-2 rounded-lg font-mono text-xs bg-white/5 hover:bg-white/10 text-emerald-300" title="Речной пирс с каноэ">L0</button>
+                            </div>
+                        </div>
+
+                        <!-- Управление прозрачностью стеклянного пола над водопадом (IMG_8472) -->
+                        <div class="glass-card rounded-2xl p-5 border border-white/10 space-y-4">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-2">
+                                    <i data-lucide="layers" class="w-4 h-4 text-sky-400"></i>
+                                    <span class="font-mono text-xs uppercase text-white font-semibold">Стеклянный пол над водопадом (IMG_8472)</span>
+                                </div>
+                                <span class="font-mono text-xs text-sky-300" id="glassFloorValue">100% Прозрачный</span>
+                            </div>
+                            <input type="range" id="glassFloorSlider" min="0" max="100" value="100" class="w-full" oninput="updateGlassFloorOpacity(this.value)">
+                            <div class="flex justify-between font-mono text-[10px] text-slate-400">
+                                <span>0% (Матовый приватный щит)</span>
+                                <span>100% (Обзор водопада)</span>
+                            </div>
+                        </div>
+
+                        <!-- Быстрые сценарии резиденции -->
+                        <div class="glass-card rounded-2xl p-5 border border-white/10 space-y-3">
+                            <span class="font-mono text-xs uppercase text-slate-400 block">Тактические и климатические протоколы</span>
+                            <button onclick="toggleFireplaceState()" id="btnFireplace" class="w-full p-3 rounded-xl bg-amber-500/15 border border-amber-500/40 flex items-center justify-between text-xs text-amber-200 transition-all">
+                                <span class="flex items-center gap-2"><i data-lucide="flame" class="w-4 h-4 text-amber-400"></i> Сланцевый камин в гостиной (IMG_8472)</span>
+                                <span class="font-mono font-bold">АКТИВЕН (+24°C)</span>
+                            </button>
+                            <button onclick="toggleSpaSteamState()" id="btnSpaSteam" class="w-full p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/40 flex items-center justify-between text-xs text-emerald-200 transition-all">
+                                <span class="flex items-center gap-2"><i data-lucide="droplets" class="w-4 h-4 text-emerald-400"></i> Каменная чаша и парная SPA (IMG_8474)</span>
+                                <span class="font-mono font-bold">+39°C ГОТОВО</span>
+                            </button>
+                            <button onclick="toggleHelipadHeating()" id="btnHelipadHeat" class="w-full p-3 rounded-xl bg-sky-500/15 border border-sky-500/40 flex items-center justify-between text-xs text-sky-200 transition-all">
+                                <span class="flex items-center gap-2"><i data-lucide="plane" class="w-4 h-4 text-sky-400"></i> Подогрев хелипада H1 (IMG_8463)</span>
+                                <span class="font-mono font-bold">ДЕЖУРНЫЙ РЕЖИМ</span>
+                            </button>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <!-- =================================================================== -->
+            <!-- ВКЛАДКА 2: УМНЫЙ ДОМ & ИНТЕРЬЕРЫ (ВСЕ 4 ФОТО-ЗОНЫ РЕЗИДЕНЦИИ)        -->
+            <!-- =================================================================== -->
+            <div id="tab-zones" class="app-tab-section hidden space-y-8">
+                <div class="flex flex-col md:flex-row md:items-end justify-between gap-4">
+                    <div>
+                        <span class="font-mono text-xs text-brass-400 uppercase">АРХИТЕКТУРА ИНТЕРЬЕРОВ & ЭКСТЕРЬЕРА // ПОЛНОЕ ОПИСАНИЕ 4 РАКУРСОВ</span>
+                        <h2 class="font-serif text-3xl sm:text-4xl font-bold text-white mt-1">Детальный разбор и управление 4 зонами проекта SKY RIFT</h2>
+                    </div>
+                    <p class="text-xs text-slate-400 max-w-md">
+                        Каждая карточка ниже включает крупноформатную фотографию соответствующей зоны, полное описание строительных материалов и панель управления микроклиматом.
+                    </p>
+                </div>
+
+                <div class="grid lg:grid-cols-2 gap-8">
+                    
+                    <!-- ЗОНА 1: ЭКСТЕРЬЕР МОСТА, ЛИФТ К КАНОЭ И ХЕЛИПАД (IMG_8463) -->
+                    <div class="glass-card rounded-3xl overflow-hidden border border-white/10 flex flex-col justify-between">
+                        <div>
+                            <div class="relative h-72 sm:h-80 overflow-hidden bg-black group cursor-pointer" onclick="openPhotoLightbox('IMG_8463')">
+                                <img data-photo-slot="IMG_8463" alt="IMG_8463 Экстерьер моста" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700">
+                                <div class="absolute inset-0 bg-gradient-to-t from-obsidian-950 via-transparent to-transparent"></div>
+                                <div class="absolute top-4 left-4 px-3 py-1 rounded-full bg-obsidian-950/85 border border-brass-400/40 font-mono text-xs text-brass-300">
+                                    РАКУРС 01 // IMG_8463 • ЭКСТЕРЬЕР И ЛОГИСТИКА
+                                </div>
+                                <div class="absolute bottom-4 left-4 right-4 flex items-end justify-between">
+                                    <div>
+                                        <h3 class="font-serif text-2xl font-bold text-white">Стальной дом-мост, лифт к каноэ и хелипад</h3>
+                                        <p class="text-xs text-slate-300">Пролет 68 м • Диагональный подкос 42 м • Лифт 54 м • Гараж на 3 суперкара</p>
+                                    </div>
+                                    <span class="px-2.5 py-1 rounded bg-white/10 backdrop-blur font-mono text-[10px] text-white">Увеличить</span>
+                                </div>
+                            </div>
+
+                            <div class="p-6 space-y-4">
+                                <p class="text-sm text-slate-300 leading-relaxed">
+                                    Горизонтальный корпус резиденции перекрывает скальное ущелье над горной рекой. Основную нагрузку центрального пролета воспринимает мощная **диагональная стальная коробчатая распорка (подкос)**, уходящая в базальтовый массив левого берега. Вдоль правого утеса спускается **54-метровая стеклянная шахта панорамного лифта**, выходящая к деревянному пирсу с каноэ. На правом плато размещены консольная вертолетная площадка с черным вертолетом и крытый павильон паркинга на 3 коллекционных автомобиля.
+                                </p>
+                                <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 font-mono text-xs">
+                                    <div class="p-2.5 rounded-xl bg-white/[0.03] border border-white/5">
+                                        <span class="text-slate-400 block text-[10px]">СТАЛЬ КАРКАСА</span>
+                                        <span class="text-brass-300">S460ML (Кортен/Мат)</span>
+                                    </div>
+                                    <div class="p-2.5 rounded-xl bg-white/[0.03] border border-white/5">
+                                        <span class="text-slate-400 block text-[10px]">ШАХТА ЛИФТА</span>
+                                        <span class="text-sky-300">54 м (6 остановок)</span>
+                                    </div>
+                                    <div class="p-2.5 rounded-xl bg-white/[0.03] border border-white/5">
+                                        <span class="text-slate-400 block text-[10px]">ТРАНСПОРТНЫЙ ХАБ</span>
+                                        <span class="text-emerald-300">Хелипад + 3 бокса + Пирс</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="px-6 py-4 bg-white/[0.02] border-t border-white/10 flex items-center justify-between text-xs font-mono">
+                            <span class="text-slate-400">Освещение моста и пирса: <strong class="text-amber-300">2700K Warm Amber</strong></span>
+                            <button onclick="openPhotoLightbox('IMG_8463')" class="text-brass-300 hover:underline">Инженерный разбор →</button>
+                        </div>
+                    </div>
+
+                    <!-- ЗОНА 2: ДВУСВЕТНАЯ ГОСТИНАЯ СО СТЕКЛЯННЫМ ПОЛОМ НАД ВОДОПАДОМ (IMG_8472) -->
+                    <div class="glass-card rounded-3xl overflow-hidden border border-white/10 flex flex-col justify-between">
+                        <div>
+                            <div class="relative h-72 sm:h-80 overflow-hidden bg-black group cursor-pointer" onclick="openPhotoLightbox('IMG_8472')">
+                                <img data-photo-slot="IMG_8472" alt="IMG_8472 Двусветная гостиная" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700">
+                                <div class="absolute inset-0 bg-gradient-to-t from-obsidian-950 via-transparent to-transparent"></div>
+                                <div class="absolute top-4 left-4 px-3 py-1 rounded-full bg-obsidian-950/85 border border-brass-400/40 font-mono text-xs text-brass-300">
+                                    РАКУРС 02 // IMG_8472 • ГРАНД-САЛОН НАД ВОДОПАДОМ
+                                </div>
+                                <div class="absolute bottom-4 left-4 right-4 flex items-end justify-between">
+                                    <div>
+                                        <h3 class="font-serif text-2xl font-bold text-white">Двусветная гостиная со стеклянным полом</h3>
+                                        <p class="text-xs text-slate-300">Пятислойный триплекс над водопадом • Черный сланец • Диван букле</p>
+                                    </div>
+                                    <span class="px-2.5 py-1 rounded bg-white/10 backdrop-blur font-mono text-[10px] text-white">Увеличить</span>
+                                </div>
+                            </div>
+
+                            <div class="p-6 space-y-4">
+                                <p class="text-sm text-slate-300 leading-relaxed">
+                                    Главный салон расположен ровно по оси каньона. Левая галерея выполнена из **структурного 5-слойного бронестекла-триплекса толщиной 82 мм**, сквозь которое открывается вертикальный вид на каскадный горный водопад и верхушки елей прямо под ногами. Доминанта зала — монументальный камин, облицованный крупноформатным **черным колотым сланцем** в обрамлении светлого травертина. Мягкая группа представлена радиусным диваном и креслами в молочном букле Loro Piana на ковре ручной работы вокруг квадратного мраморного стола на латунном каркасе с вазой пампасной травы.
+                                </p>
+                                <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 font-mono text-xs">
+                                    <div class="p-2.5 rounded-xl bg-white/[0.03] border border-white/5">
+                                        <span class="text-slate-400 block text-[10px]">СТЕКЛЯННЫЙ ПОЛ</span>
+                                        <span class="text-sky-300">5×15 мм SentryGlas</span>
+                                    </div>
+                                    <div class="p-2.5 rounded-xl bg-white/[0.03] border border-white/5">
+                                        <span class="text-slate-400 block text-[10px]">ОБЛИЦОВКА КАМИНА</span>
+                                        <span class="text-brass-300">Черный сланец + Травертин</span>
+                                    </div>
+                                    <div class="p-2.5 rounded-xl bg-white/[0.03] border border-white/5">
+                                        <span class="text-slate-400 block text-[10px]">ВЫСОТА ПОТОЛКА</span>
+                                        <span class="text-emerald-300">6.80 м (Второй свет)</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="px-6 py-4 bg-white/[0.02] border-t border-white/10 flex items-center justify-between text-xs font-mono">
+                            <span class="text-slate-400">Нагрузка на стеклянный пол: <strong class="text-emerald-400">до 1 500 кг/м²</strong></span>
+                            <button onclick="openPhotoLightbox('IMG_8472')" class="text-brass-300 hover:underline">Инженерный разбор →</button>
+                        </div>
+                    </div>
+
+                    <!-- ЗОНА 3: КОНСОЛЬНАЯ МАСТЕР-СПАЛЬНЯ «ПАРЯЩАЯ ПЛАТФОРМА» (IMG_8473) -->
+                    <div class="glass-card rounded-3xl overflow-hidden border border-white/10 flex flex-col justify-between">
+                        <div>
+                            <div class="relative h-72 sm:h-80 overflow-hidden bg-black group cursor-pointer" onclick="openPhotoLightbox('IMG_8473')">
+                                <img data-photo-slot="IMG_8473" alt="IMG_8473 Парящая Мастер-спальня" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700">
+                                <div class="absolute inset-0 bg-gradient-to-t from-obsidian-950 via-transparent to-transparent"></div>
+                                <div class="absolute top-4 left-4 px-3 py-1 rounded-full bg-obsidian-950/85 border border-brass-400/40 font-mono text-xs text-brass-300">
+                                    РАКУРС 03 // IMG_8473 • ПРИВАТНЫЙ МАСТЕР-СЬЮТ
+                                </div>
+                                <div class="absolute bottom-4 left-4 right-4 flex items-end justify-between">
+                                    <div>
+                                        <h3 class="font-serif text-2xl font-bold text-white">Мастер-спальня «Парящая платформа»</h3>
+                                        <p class="text-xs text-slate-300">Витраж ниже уровня пола • Латунный профиль • Стеклянный куб гардеробной</p>
+                                    </div>
+                                    <span class="px-2.5 py-1 rounded bg-white/10 backdrop-blur font-mono text-[10px] text-white">Увеличить</span>
+                                </div>
+                            </div>
+
+                            <div class="p-6 space-y-4">
+                                <p class="text-sm text-slate-300 leading-relaxed">
+                                    Уникальное инженерное решение спальни — **консольная палуба из массива темного американского ореха**, которая не доходит до внешнего стеклянного контура, а парит над нижней стеклянной лентой фасада. Благодаря этому прямо из-под кровати открывается завораживающий вид на туманное ущелье и кроны вековых елей. За кроватью возвышается графитовое велюровое панно с латунным молдингом, между темными балками скатной кровли интегрированы теплые световые линии, а справа выделен **стеклянный куб гардеробной walk-in** с подсветкой каждой полки.
+                                </p>
+                                <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 font-mono text-xs">
+                                    <div class="p-2.5 rounded-xl bg-white/[0.03] border border-white/5">
+                                        <span class="text-slate-400 block text-[10px]">КОНСОЛЬ ПОЛА</span>
+                                        <span class="text-brass-300">Американский орех</span>
+                                    </div>
+                                    <div class="p-2.5 rounded-xl bg-white/[0.03] border border-white/5">
+                                        <span class="text-slate-400 block text-[10px]">ГАРДЕРОБНАЯ</span>
+                                        <span class="text-sky-300">Стеклянный куб + Климат</span>
+                                    </div>
+                                    <div class="p-2.5 rounded-xl bg-white/[0.03] border border-white/5">
+                                        <span class="text-slate-400 block text-[10px]">НИЖНИЙ ВИТРАЖ</span>
+                                        <span class="text-emerald-300">С подогревом ThermoGlass</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="px-6 py-4 bg-white/[0.02] border-t border-white/10 flex items-center justify-between text-xs font-mono">
+                            <span class="text-slate-400">Акустическая изоляция сьюта: <strong class="text-emerald-400">Rw = 62 дБ</strong></span>
+                            <button onclick="openPhotoLightbox('IMG_8473')" class="text-brass-300 hover:underline">Инженерный разбор →</button>
+                        </div>
+                    </div>
+
+                    <!-- ЗОНА 4: ДВУСВЕТНАЯ МАСТЕР-ВАННАЯ & SPA НАД ВОДОПАДОМ (IMG_8474) -->
+                    <div class="glass-card rounded-3xl overflow-hidden border border-white/10 flex flex-col justify-between">
+                        <div>
+                            <div class="relative h-72 sm:h-80 overflow-hidden bg-black group cursor-pointer" onclick="openPhotoLightbox('IMG_8474')">
+                                <img data-photo-slot="IMG_8474" alt="IMG_8474 Двусветная Мастер-ванная" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700">
+                                <div class="absolute inset-0 bg-gradient-to-t from-obsidian-950 via-transparent to-transparent"></div>
+                                <div class="absolute top-4 left-4 px-3 py-1 rounded-full bg-obsidian-950/85 border border-brass-400/40 font-mono text-xs text-brass-300">
+                                    РАКУРС 04 // IMG_8474 • ДВУСВЕТНЫЙ SPA-САНКТУАРИЙ
+                                </div>
+                                <div class="absolute bottom-4 left-4 right-4 flex items-end justify-between">
+                                    <div>
+                                        <h3 class="font-serif text-2xl font-bold text-white">Двусветная Мастер-ванная & Паровая SPA</h3>
+                                        <p class="text-xs text-slate-300">Каменная чаша у окна на водопад • Травертин и Nero Marquina • Латунь</p>
+                                    </div>
+                                    <span class="px-2.5 py-1 rounded bg-white/10 backdrop-blur font-mono text-[10px] text-white">Увеличить</span>
+                                </div>
+                            </div>
+
+                            <div class="p-6 space-y-4">
+                                <p class="text-sm text-slate-300 leading-relaxed">
+                                    Двухэтажный SPA-санктуарий хозяйского крыла ориентирован прямо на скальный каскад водопада. Перед двухъярусным панорамным витражом установлена монолитная **свободностоящая чаша ванны, выточенная из цельного блока матового черного базальта**, с напольным смесителем из сатинированной латуни. Стены и теплый пол облицованы натуральным пористым бежевым **травертином** в сочетании с черным мрамором **Nero Marquina** с белыми прожилками. Справа встроена двухэтажная остекленная паровая душевая (хамам-кабина) с потолочными тропическими лейками и цилиндрическими латунными подвесами.
+                                </p>
+                                <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 font-mono text-xs">
+                                    <div class="p-2.5 rounded-xl bg-white/[0.03] border border-white/5">
+                                        <span class="text-slate-400 block text-[10px]">ЧАША ВАННЫ</span>
+                                        <span class="text-brass-300">Цельный базальт (920 кг)</span>
+                                    </div>
+                                    <div class="p-2.5 rounded-xl bg-white/[0.03] border border-white/5">
+                                        <span class="text-slate-400 block text-[10px]">ОТДЕЛКА СТЕН</span>
+                                        <span class="text-sky-300">Травертин + Nero Marquina</span>
+                                    </div>
+                                    <div class="p-2.5 rounded-xl bg-white/[0.03] border border-white/5">
+                                        <span class="text-slate-400 block text-[10px]">ДУШЕВОЙ КОМПЛЕКС</span>
+                                        <span class="text-emerald-300">Парогенератор + Тропический душ</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="px-6 py-4 bg-white/[0.02] border-t border-white/10 flex items-center justify-between text-xs font-mono">
+                            <span class="text-slate-400">Водоснабжение SPA: <strong class="text-sky-300">Горный источник глубиной 180 м</strong></span>
+                            <button onclick="openPhotoLightbox('IMG_8474')" class="text-brass-300 hover:underline">Инженерный разбор →</button>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- =================================================================== -->
+            <!-- ВКЛАДКА 3: СТРОИТЕЛЬСТВО & КР (ТЕХНАДЗОР И ТЕНЗОМЕТРИЯ)              -->
+            <!-- =================================================================== -->
+            <div id="tab-construction" class="app-tab-section hidden space-y-8">
+                <div class="grid lg:grid-cols-12 gap-8">
+                    
+                    <!-- Левая колонка (7): Дорожная карта возведения и фотофиксация узлов -->
+                    <div class="lg:col-span-7 glass-card rounded-3xl p-6 border border-white/10 space-y-6">
+                        <div>
+                            <span class="font-mono text-xs text-brass-400 uppercase">ЖУРНАЛ ПРОИЗВОДСТВА ВЫСОТНЫХ РАБОТ (ППР)</span>
+                            <h2 class="font-serif text-2xl sm:text-3xl font-bold text-white mt-1">5 фаз строительства моста SKY RIFT над каньоном</h2>
+                        </div>
+
+                        <div class="grid grid-cols-5 gap-2" id="constructionPhaseTabs">
+                            <button onclick="selectConstructionPhase(0)" class="phase-btn p-3 rounded-xl border border-brass-400 bg-brass-500/20 text-left font-mono text-xs text-brass-300">ФАЗА 01</button>
+                            <button onclick="selectConstructionPhase(1)" class="phase-btn p-3 rounded-xl border border-white/10 bg-white/5 text-left font-mono text-xs text-slate-400">ФАЗА 02</button>
+                            <button onclick="selectConstructionPhase(2)" class="phase-btn p-3 rounded-xl border border-white/10 bg-white/5 text-left font-mono text-xs text-slate-400">ФАЗА 03</button>
+                            <button onclick="selectConstructionPhase(3)" class="phase-btn p-3 rounded-xl border border-white/10 bg-white/5 text-left font-mono text-xs text-slate-400">ФАЗА 04</button>
+                            <button onclick="selectConstructionPhase(4)" class="phase-btn p-3 rounded-xl border border-white/10 bg-white/5 text-left font-mono text-xs text-slate-400">ФАЗА 05</button>
+                        </div>
+
+                        <div id="constructionPhaseDetail" class="p-5 rounded-2xl bg-white/[0.03] border border-white/10 space-y-4">
+                            <!-- Динамически обновляется через JS с привязкой к фото IMG_8463–8474 -->
+                        </div>
+                    </div>
+
+                    <!-- Правая колонка (5): Живая тензометрия диагонального подкоса и анкеров -->
+                    <div class="lg:col-span-5 glass-card rounded-3xl p-6 border border-white/10 space-y-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <span class="font-mono text-xs text-emerald-400 uppercase">SHM-МОНИТОРИНГ КОНСТРУКЦИЙ</span>
+                                <h3 class="font-serif text-2xl font-bold text-white">Тензодатчики моста и подкоса</h3>
+                            </div>
+                            <button onclick="simulateWindGust()" class="px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 font-mono text-xs text-amber-300">
+                                Тест порыва ветра 32 м/с
+                            </button>
+                        </div>
+
+                        <div class="space-y-4 font-mono text-xs">
+                            <div class="p-4 rounded-xl bg-white/[0.03] border border-white/10 space-y-2">
+                                <div class="flex justify-between">
+                                    <span class="text-slate-400">Сжатие диагонального подкоса (42 м):</span>
+                                    <span class="text-emerald-400 font-bold" id="strainStrutVal">412.4 тс (Норма &lt; 950 тс)</span>
+                                </div>
+                                <div class="w-full h-2 rounded-full bg-obsidian-950 overflow-hidden">
+                                    <div id="strainStrutBar" class="h-full bg-emerald-400 transition-all duration-500" style="width: 43%"></div>
+                                </div>
+                            </div>
+
+                            <div class="p-4 rounded-xl bg-white/[0.03] border border-white/10 space-y-2">
+                                <div class="flex justify-between">
+                                    <span class="text-slate-400">Прогиб триплекс-пола над водопадом (IMG_8472):</span>
+                                    <span class="text-sky-300 font-bold" id="strainGlassVal">1.18 мм (Допуск L/600)</span>
+                                </div>
+                                <div class="w-full h-2 rounded-full bg-obsidian-950 overflow-hidden">
+                                    <div id="strainGlassBar" class="h-full bg-sky-400 transition-all duration-500" style="width: 24%"></div>
+                                </div>
+                            </div>
+
+                            <div class="p-4 rounded-xl bg-white/[0.03] border border-white/10 space-y-2">
+                                <div class="flex justify-between">
+                                    <span class="text-slate-400">Преднапряжение скальных анкеров DYWIDAG:</span>
+                                    <span class="text-brass-300 font-bold" id="strainAnchorVal">100.0% Стабильно (64 анкера)</span>
+                                </div>
+                                <div class="w-full h-2 rounded-full bg-obsidian-950 overflow-hidden">
+                                    <div class="h-full bg-brass-400" style="width: 88%"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Фото-справка конструктивного узла -->
+                        <div class="p-4 rounded-2xl bg-obsidian-900/90 border border-white/10 flex items-center gap-4">
+                            <img data-photo-slot="IMG_8463" alt="Узел подкоса" class="w-24 h-20 rounded-xl object-cover border border-brass-400/30 shrink-0">
+                            <div class="text-xs space-y-1">
+                                <div class="font-mono text-brass-300 uppercase">Узел сопряжения КР-01 (IMG_8463)</div>
+                                <p class="text-slate-400 leading-relaxed">
+                                    Шарнирно-анкерный упор диагональной фермы в левую скалу гасит до 78% изгибающего момента пролета и вибраций от посадки вертолета.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- =================================================================== -->
+            <!-- ВКЛАДКА 4: КАМЕРЫ БЕЗОПАСНОСТИ & ПЕРИМЕТР (4 РАКУРСА С ФОТО)         -->
+            <!-- =================================================================== -->
+            <div id="tab-security" class="app-tab-section hidden space-y-8">
+                <div class="flex flex-wrap items-center justify-between gap-4">
+                    <div>
+                        <span class="font-mono text-xs text-emerald-400 uppercase">ЗАКРЫТЫЙ КОНТУР НАБЛЮДЕНИЯ // AI PERIMETER SENTRY</span>
+                        <h2 class="font-serif text-3xl font-bold text-white mt-1">Оптический, ИК-ночной и тепловизионный контроль 4 секторов</h2>
+                    </div>
+                    <!-- Переключатель режимов камер -->
+                    <div class="flex items-center gap-2 bg-obsidian-900 p-1.5 rounded-xl border border-white/10">
+                        <button onclick="setCameraVisionMode('optical')" id="camModeOptical" class="px-3.5 py-2 rounded-lg font-mono text-xs bg-brass-500 text-obsidian-950 font-bold">ОПТИКА HD</button>
+                        <button onclick="setCameraVisionMode('nvg')" id="camModeNvg" class="px-3.5 py-2 rounded-lg font-mono text-xs text-emerald-300 hover:bg-white/5">ИК НОЧНОЙ (NVG)</button>
+                        <button onclick="setCameraVisionMode('flir')" id="camModeFlir" class="px-3.5 py-2 rounded-lg font-mono text-xs text-sky-300 hover:bg-white/5">ТЕПЛОВИЗОР (FLIR)</button>
+                    </div>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-6">
+                    <!-- CAM-01: Общий вид моста, подкоса и лифта (IMG_8463) -->
+                    <div class="glass-card rounded-2xl overflow-hidden border border-white/15 relative scanlines">
+                        <div class="relative h-64 sm:h-72 bg-black overflow-hidden">
+                            <img data-photo-slot="IMG_8463" alt="CAM-01" class="cctv-feed-img w-full h-full object-cover transition-all duration-300">
+                            <div class="absolute top-3 left-3 px-2.5 py-1 rounded bg-black/80 border border-white/15 font-mono text-xs text-emerald-400 flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full bg-red-500 animate-ping"></span>
+                                <span>CAM-01 // КАРКАС МОСТА, ЛИФТ И ХЕЛИПАД [IMG_8463]</span>
+                            </div>
+                            <div class="absolute bottom-3 left-3 right-3 flex justify-between font-mono text-[11px] text-slate-200 bg-black/70 px-3 py-1.5 rounded">
+                                <span>AZIMUTH: 142° SE • ZOOM: 1.0x</span>
+                                <span class="text-emerald-300">ЦЕЛЕЙ НЕ ОБНАРУЖЕНО</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- CAM-02: Двусветный салон и стеклянный пол над водопадом (IMG_8472) -->
+                    <div class="glass-card rounded-2xl overflow-hidden border border-white/15 relative scanlines">
+                        <div class="relative h-64 sm:h-72 bg-black overflow-hidden">
+                            <img data-photo-slot="IMG_8472" alt="CAM-02" class="cctv-feed-img w-full h-full object-cover transition-all duration-300">
+                            <div class="absolute top-3 left-3 px-2.5 py-1 rounded bg-black/80 border border-white/15 font-mono text-xs text-emerald-400 flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full bg-red-500 animate-ping"></span>
+                                <span>CAM-02 // САЛОН И ТРИПЛЕКС-ПОЛ НАД ВОДОПАДОМ [IMG_8472]</span>
+                            </div>
+                            <div class="absolute bottom-3 left-3 right-3 flex justify-between font-mono text-[11px] text-slate-200 bg-black/70 px-3 py-1.5 rounded">
+                                <span>КАМИН: +24.2°C • ДАТЧИК УДАРА СТЕКЛА: ОК</span>
+                                <span class="text-emerald-300">СТАТУС: ШТАТНО</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- CAM-03: Консольная Мастер-спальня и стеклянный гардероб (IMG_8473) -->
+                    <div class="glass-card rounded-2xl overflow-hidden border border-white/15 relative scanlines">
+                        <div class="relative h-64 sm:h-72 bg-black overflow-hidden">
+                            <img data-photo-slot="IMG_8473" alt="CAM-03" class="cctv-feed-img w-full h-full object-cover transition-all duration-300">
+                            <div class="absolute top-3 left-3 px-2.5 py-1 rounded bg-black/80 border border-white/15 font-mono text-xs text-emerald-400 flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full bg-red-500 animate-ping"></span>
+                                <span>CAM-03 // МАСТЕР-СЬЮТ И ПАРЯЩАЯ КОНСОЛЬ [IMG_8473]</span>
+                            </div>
+                            <div class="absolute bottom-3 left-3 right-3 flex justify-between font-mono text-[11px] text-slate-200 bg-black/70 px-3 py-1.5 rounded">
+                                <span>СЕЙФОВЫЙ КУБ ГАРДЕРОБНОЙ: ЗАБЛОКИРОВАН</span>
+                                <span class="text-brass-300">ПРИВАТНЫЙ КОНТУР</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- CAM-04: Двусветная ванная & SPA у водопада (IMG_8474) -->
+                    <div class="glass-card rounded-2xl overflow-hidden border border-white/15 relative scanlines">
+                        <div class="relative h-64 sm:h-72 bg-black overflow-hidden">
+                            <img data-photo-slot="IMG_8474" alt="CAM-04" class="cctv-feed-img w-full h-full object-cover transition-all duration-300">
+                            <div class="absolute top-3 left-3 px-2.5 py-1 rounded bg-black/80 border border-white/15 font-mono text-xs text-emerald-400 flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full bg-red-500 animate-ping"></span>
+                                <span>CAM-04 // SPA-САНКТУАРИЙ И ВИТРАЖ КАСКАДА [IMG_8474]</span>
+                            </div>
+                            <div class="absolute bottom-3 left-3 right-3 flex justify-between font-mono text-[11px] text-slate-200 bg-black/70 px-3 py-1.5 rounded">
+                                <span>ВЛАЖНОСТЬ: 54% • ТЕМПЕРАТУРА ЧАШИ: +39°C</span>
+                                <span class="text-emerald-300">ГЕРМЕТИЧНО</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- =================================================================== -->
+            <!-- ВКЛАДКА 5: ФИНАНСЫ & ЗАКРЫТЫЙ КОНСЬЕРЖ (ESCROW & CHIEF ENGINEER)     -->
+            <!-- =================================================================== -->
+            <div id="tab-finance" class="app-tab-section hidden space-y-8">
+                <div class="grid lg:grid-cols-12 gap-8">
+                    
+                    <!-- Финансовый конфигуратор (7 колонок) -->
+                    <div class="lg:col-span-7 glass-card rounded-3xl p-6 sm:p-8 border border-white/10 space-y-6">
+                        <div class="flex items-center justify-between border-b border-white/10 pb-4">
+                            <div>
+                                <span class="font-mono text-xs text-brass-400 uppercase">SWISS ESCROW // СМЕТА РЕАЛИЗАЦИИ ПОД КЛЮЧ</span>
+                                <h2 class="font-serif text-2xl sm:text-3xl font-bold text-white mt-1">Конфигуратор строительства SKY RIFT</h2>
+                            </div>
+                            <div class="text-right">
+                                <div class="font-mono text-[10px] text-slate-400">ИТОГОВЫЙ БЮДЖЕТ ПРОЕКТА</div>
+                                <div class="font-serif text-3xl font-bold text-brass-300" id="escrowTotalDisplay">$18 400 000</div>
+                            </div>
+                        </div>
+
+                        <div class="space-y-3">
+                            <label class="flex items-center justify-between p-4 rounded-2xl bg-white/[0.03] border border-white/10 cursor-pointer hover:border-brass-400/40">
+                                <div class="flex items-center gap-3">
+                                    <input type="checkbox" checked disabled class="w-4 h-4 accent-brass-500">
+                                    <div>
+                                        <span class="font-medium text-white text-sm block">Базовый мост 68 м + диагональный подкос 42 м (IMG_8463)</span>
+                                        <span class="text-xs text-slate-400">Скальные анкеры, металлокаркас S460ML, 54-метровый лифт к реке</span>
+                                    </div>
+                                </div>
+                                <span class="font-mono text-xs text-white">$12.5M</span>
+                            </label>
+
+                            <label class="flex items-center justify-between p-4 rounded-2xl bg-white/[0.03] border border-white/10 cursor-pointer hover:border-brass-400/40">
+                                <div class="flex items-center gap-3">
+                                    <input type="checkbox" id="finOptGlassFloor" checked onchange="recalcEscrow()" class="w-4 h-4 accent-brass-500">
+                                    <div>
+                                        <span class="font-medium text-white text-sm block">5-слойный электрохромный триплекс-пол над водопадом (IMG_8472)</span>
+                                        <span class="text-xs text-slate-400">Бронестекло SentryGlas 82 мм + камин из черного сланца</span>
+                                    </div>
+                                </div>
+                                <span class="font-mono text-xs text-brass-300">+$2.1M</span>
+                            </label>
+
+                            <label class="flex items-center justify-between p-4 rounded-2xl bg-white/[0.03] border border-white/10 cursor-pointer hover:border-brass-400/40">
+                                <div class="flex items-center gap-3">
+                                    <input type="checkbox" id="finOptMaster" checked onchange="recalcEscrow()" class="w-4 h-4 accent-brass-500">
+                                    <div>
+                                        <span class="font-medium text-white text-sm block">Консольная палуба спальни и стеклянный куб гардеробной (IMG_8473)</span>
+                                        <span class="text-xs text-slate-400">Остекление ниже уровня пола с подогревом + биометрический гардероб</span>
+                                    </div>
+                                </div>
+                                <span class="font-mono text-xs text-brass-300">+$1.9M</span>
+                            </label>
+
+                            <label class="flex items-center justify-between p-4 rounded-2xl bg-white/[0.03] border border-white/10 cursor-pointer hover:border-brass-400/40">
+                                <div class="flex items-center gap-3">
+                                    <input type="checkbox" id="finOptSpa" checked onchange="recalcEscrow()" class="w-4 h-4 accent-brass-500">
+                                    <div>
+                                        <span class="font-medium text-white text-sm block">Двусветный SPA-санктуарий с базальтовой чашей у водопада (IMG_8474)</span>
+                                        <span class="text-xs text-slate-400">Цельная каменная ванна, отделка травертином и Nero Marquina, хамам</span>
+                                    </div>
+                                </div>
+                                <span class="font-mono text-xs text-brass-300">+$1.9M</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Зашифрованный чат с Главным инженером проекта (5 колонок) -->
+                    <div class="lg:col-span-5 glass-card rounded-3xl p-6 border border-white/10 flex flex-col justify-between h-[460px]">
+                        <div class="pb-3 border-b border-white/10 flex items-center justify-between">
+                            <div class="flex items-center gap-2.5">
+                                <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                                <div>
+                                    <div class="font-serif text-lg font-bold text-white">Прямой канал с ГИПом (P2P E2EE)</div>
+                                    <div class="font-mono text-[10px] text-slate-400">Главный конструктор мостовых сооружений • Online</div>
+                                </div>
+                            </div>
+                            <span class="font-mono text-[10px] px-2 py-0.5 rounded bg-white/5 text-brass-300">AES-256</span>
+                        </div>
+
+                        <div id="chatMessages" class="flex-1 overflow-y-auto py-4 space-y-3 text-xs pr-1">
+                            <div class="p-3 rounded-2xl bg-white/5 border border-white/10 text-slate-200 max-w-[88%]">
+                                <div class="font-mono text-[10px] text-brass-400 mb-1">ГЛАВНЫЙ ИНЖЕНЕР // 09:04</div>
+                                Все 4 ключевых узла резиденции (мост с подкосом `IMG_8463`, стеклянный пол салона `IMG_8472`, консольная спальня `IMG_8473` и двусветный SPA-блок `IMG_8474`) верифицированы в рабочей модели. Готов ответить на технические вопросы.
+                            </div>
+                        </div>
+
+                        <form onsubmit="sendEncryptedChat(event)" class="pt-3 border-t border-white/10 flex gap-2">
+                            <input type="text" id="chatInput" placeholder="Запрос по конструктиву или смете..." class="flex-1 px-3.5 py-2.5 rounded-xl bg-obsidian-950 border border-white/15 text-xs text-white focus:outline-none focus:border-brass-400">
+                            <button type="submit" class="px-4 py-2.5 rounded-xl bg-brass-500 hover:bg-brass-400 text-obsidian-950 font-semibold text-xs">
+                                Отправить
+                            </button>
+                        </form>
+                    </div>
+
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- МОБИЛЬНЫЙ НИЖНИЙ ДОК НАВИГАЦИИ -->
+    <nav class="lg:hidden fixed bottom-0 inset-x-0 z-40 glass-card border-t border-white/15 px-2 py-2 grid grid-cols-5 gap-1">
+        <button onclick="switchAppTab('command')" class="flex flex-col items-center py-1.5 text-[10px] font-mono text-brass-300">
+            <i data-lucide="cpu" class="w-4 h-4 mb-1"></i>
+            <span>Мост</span>
+        </button>
+        <button onclick="switchAppTab('zones')" class="flex flex-col items-center py-1.5 text-[10px] font-mono text-slate-300">
+            <i data-lucide="sparkles" class="w-4 h-4 mb-1"></i>
+            <span>4 Фото</span>
+        </button>
+        <button onclick="switchAppTab('construction')" class="flex flex-col items-center py-1.5 text-[10px] font-mono text-slate-300">
+            <i data-lucide="hard-hat" class="w-4 h-4 mb-1"></i>
+            <span>КР</span>
+        </button>
+        <button onclick="switchAppTab('security')" class="flex flex-col items-center py-1.5 text-[10px] font-mono text-slate-300">
+            <i data-lucide="cctv" class="w-4 h-4 mb-1"></i>
+            <span>Камеры</span>
+        </button>
+        <button onclick="switchAppTab('finance')" class="flex flex-col items-center py-1.5 text-[10px] font-mono text-slate-300">
+            <i data-lucide="landmark" class="w-4 h-4 mb-1"></i>
+            <span>Смета</span>
+        </button>
+    </nav>
+
+    <!-- ======================================================================= -->
+    <!-- СКРИПТ: ФОТОРЕАЛИСТИЧНЫЙ ГЕНЕРАТОР 4 РАКУРСОВ (IMG_8463–8474) + ЛОГИКА ОС -->
+    <!-- ======================================================================= -->
+    <script>
+        // Безопасная инициализация иконок
+        function initIconsSafely() {
+            if (window.lucide && typeof window.lucide.createIcons === 'function') {
+                window.lucide.createIcons();
+            }
+        }
+        initIconsSafely();
+
+        // МЕТАДАННЫЕ ВСЕХ 4 ФОТОГРАФИЙ ПРОЕКТА SKY RIFT
+        const PHOTO_ARCHIVE = {
+            'IMG_8463': {
+                code: 'IMG_8463',
+                title: 'Экстерьер: Стальной дом-мост над ущельем с лифтом к каноэ и хелипадом',
+                subtitle: 'Пролет 68 м • Диагональный подкос 42 м • Лифт 54 м • Вертолет и 3 суперкара',
+                description: 'Внешний ракурс секретной резиденции SKY RIFT над горной рекой в туманном хвойном каньоне. Горизонтальный стальной мост поддерживается массивным черным диагональным подкосом, упирающимся в левый утес. Справа вдоль скалы спускается 54-метровая стеклянная шахта лифта прямо к деревянному пирсу с оранжево-кедровым каноэ. На правом береговом плато расположены консольная вертолетная площадка с черным вертолетом и крытый павильон гаража на 3 суперкара.',
+                specs: [
+                    'Пролет стального моста: 68.0 м (высокопрочная сталь S460ML)',
+                    'Диагональная распорная ферма-подкос: 42.0 м, уклон 42° в скалу',
+                    'Вертикальная стеклянная шахта лифта: 54.0 м (6 уровней до причала с каноэ)',
+                    'Транспортный узел: вертодром H1 + крытый паркинг на 3 автомобиля'
+                ]
+            },
+            'IMG_8472': {
+                code: 'IMG_8472',
+                title: 'Двусветная гостиная с прозрачным стеклянным полом над водопадом',
+                subtitle: 'Пятислойный триплекс 82 мм • Камин из черного сланца • Мебель букле',
+                description: 'Интерьер центрального двусветного салона на мосту. Вдоль левого витража устроен полностью прозрачный структурный стеклянный пол, сквозь который виден ревущий водопад и кроны сосен на дне ущелья. В центре стены из светлого травертина возвышается камин, отделанный черным колотым сланцем с живым огнем. В лаунж-зоне — полукруглый диван и два пышных кресла из кремового букле, квадратный стол из мрамора на латунном основании с вазой пампасной травы.',
+                specs: [
+                    'Конструкция стеклянного пола: 5 слоев закаленного триплекса с ионопластом SentryGlas (82 мм)',
+                    'Каминный портал: натуральный черный сланец + панели бежевого травертина',
+                    'Остекление: двухъярусные витражи высотой 6.8 м в черном стальном профиле',
+                    'Меблировка: радиусный диван букле, ковер с высоким ворсом, стол с латунной базой'
+                ]
+            },
+            'IMG_8473': {
+                code: 'IMG_8473',
+                title: 'Консольная Мастер-спальня «Парящая платформа» со стеклянным гардеробом',
+                subtitle: 'Остекление ниже палубы пола • Велюровое изголовье с латунью • Walk-in куб',
+                description: 'Приватная хозяйская спальня в консольном крыле моста. Палуба пола из темного американского ореха обрывается перед внешним витражом, а панорамное остекление продолжается ниже уровня перекрытия — создавая иллюзию парения кровати прямо над туманным лесом и пропастью. Высокое графитовое изголовье обрамлено латунным профилем, в межбалочном потолке светятся теплые LED-линии, а справа встроен полностью стеклянный куб гардеробной комнаты с теплой подсветкой.',
+                specs: [
+                    'Архитектурный узел пола: консольная деревянная палуба с нижним остеклением каньона',
+                    'Потолок: открытые черные стальные стропильные балки с линейной закарнизной подсветкой 2700K',
+                    'Гардеробная: интегрированный стеклянный бокс в тонком черном профиле с климат-контролем',
+                    'Отделка изголовья: вертикальные акустические панели из темно-серого нубука и латуни'
+                ]
+            },
+            'IMG_8474': {
+                code: 'IMG_8474',
+                title: 'Двусветная Мастер-ванная & SPA-санктуарий с видом на водопад',
+                subtitle: 'Матовая каменная ванна у двухэтажного окна • Травертин и Nero Marquina • Парная',
+                description: 'Роскошная двухэтажная ванная комната, обращенная к горному водопаду. Прямо у панорамного окна в пол установлена скульптурная овальная ванна из матового черного базальта с латунным напольным смесителем. Полы и правая стена облицованы теплым бежевым травертином, контрастирующим с полированным черным мрамором Nero Marquina. Справа за высокими стеклянными дверями расположена паровая душевая (хамам) с латунными тропическими лейками и каменной скамьей.',
+                specs: [
+                    'Купель: монолитная чаша из черного матового камня с термоаккумуляцией тепла',
+                    'Каменная палитра: натуральный пористый травертин + черный мрамор Nero Marquina',
+                    'Паровая душевая: двухъярусная стеклянная кабина с 4 латунными системами тропического душа',
+                    'Световой сценарий: подвесные цилиндрические светильники из полированной латуни'
+                ]
+            }
+        };
+
+        // Хранилище текущих URL изображений (сначала заполняется фотореалистичными HD Canvas-рендерами каждой из 4 фотографий)
+        const photoDataUrls = {};
+
+        // Генерация высокодетализированных фотореалистичных Canvas-изображений для всех 4 кадров (IMG_8463, IMG_8472, IMG_8473, IMG_8474),
+        // чтобы интерфейс сразу выглядел богато и достоверно без единой битой ссылки
+        function generatePhotorealisticCanvasRenders() {
+            // 1. Рендер IMG_8463 (Экстерьер моста над каньоном)
+            const c1 = document.createElement('canvas');
+            c1.width = 1280; c1.height = 720;
+            const ctx1 = c1.getContext('2d');
+            // Туманное небо и горы
+            const skyG = ctx1.createLinearGradient(0, 0, 0, 720);
+            skyG.addColorStop(0, '#1e2c3a');
+            skyG.addColorStop(0.45, '#2b3e4e');
+            skyG.addColorStop(1, '#081018');
+            ctx1.fillStyle = skyG;
+            ctx1.fillRect(0, 0, 1280, 720);
+            // Дальние туманные сопки
+            ctx1.fillStyle = 'rgba(42, 62, 78, 0.65)';
+            ctx1.beginPath(); ctx1.moveTo(0, 220); ctx1.quadraticCurveTo(450, 130, 900, 210); ctx1.lineTo(1280, 180); ctx1.lineTo(1280, 450); ctx1.lineTo(0, 450); ctx1.fill();
+            // Густой еловый лес слева и справа
+            for (let i = 0; i < 38; i++) {
+                const tx = (i < 19) ? i * 26 : 740 + (i - 19) * 28;
+                const ty = 70 + (i % 5) * 22;
+                ctx1.fillStyle = (i % 2 === 0) ? '#10211d' : '#162b25';
+                ctx1.beginPath(); ctx1.moveTo(tx, ty); ctx1.lineTo(tx - 24, ty + 160); ctx1.lineTo(tx + 24, ty + 160); ctx1.closePath(); ctx1.fill();
+            }
+            // Бурная горная река внизу каньона
+            const rivG = ctx1.createLinearGradient(520, 340, 620, 720);
+            rivG.addColorStop(0, 'rgba(186, 230, 253, 0.35)');
+            rivG.addColorStop(0.5, 'rgba(56, 189, 248, 0.45)');
+            rivG.addColorStop(1, 'rgba(14, 116, 144, 0.6)');
+            ctx1.fillStyle = rivG;
+            ctx1.beginPath(); ctx1.moveTo(540, 350); ctx1.lineTo(640, 350); ctx1.lineTo(720, 720); ctx1.lineTo(430, 720); ctx1.closePath(); ctx1.fill();
+            // Белые пенные пороги реки
+            ctx1.strokeStyle = 'rgba(240, 249, 255, 0.65)'; ctx1.lineWidth = 3;
+            for (let r = 380; r < 700; r += 28) {
+                ctx1.beginPath(); ctx1.moveTo(520 - (r - 380) * 0.15, r); ctx1.quadraticCurveTo(580, r + 10, 650 + (r - 380) * 0.12, r); ctx1.stroke();
+            }
+            // Скальные стены каньона во мху
+            ctx1.fillStyle = '#1b2623';
+            ctx1.beginPath(); ctx1.moveTo(0, 240); ctx1.lineTo(390, 250); ctx1.lineTo(450, 720); ctx1.lineTo(0, 720); ctx1.fill();
+            ctx1.beginPath(); ctx1.moveTo(820, 250); ctx1.lineTo(1280, 250); ctx1.lineTo(1280, 720); ctx1.lineTo(730, 720); ctx1.fill();
+            // Зеленые мшистые уступы скал
+            ctx1.fillStyle = '#2d4c2b';
+            for (let m = 0; m < 14; m++) {
+                ctx1.fillRect(40 + m * 24, 260 + (m % 4) * 85, 65, 28);
+                ctx1.fillRect(830 + m * 28, 280 + (m % 4) * 80, 75, 32);
+            }
+            // Массивный черный ДИАГОНАЛЬНЫЙ СТАЛЬНОЙ ПОДКОС из левой скалы к центру моста
+            ctx1.strokeStyle = '#0d131a'; ctx1.lineWidth = 28;
+            ctx1.beginPath(); ctx1.moveTo(420, 540); ctx1.lineTo(755, 242); ctx1.stroke();
+            ctx1.strokeStyle = '#1e293b'; ctx1.lineWidth = 10;
+            ctx1.beginPath(); ctx1.moveTo(560, 415); ctx1.lineTo(695, 242); ctx1.stroke();
+            // Вертикальная 54-метровая стеклянная шахта лифта к причалу
+            ctx1.fillStyle = 'rgba(15, 23, 42, 0.82)';
+            ctx1.fillRect(825, 195, 72, 485);
+            ctx1.strokeStyle = '#475569'; ctx1.lineWidth = 3;
+            ctx1.strokeRect(825, 195, 72, 485);
+            for (let fl = 250; fl < 670; fl += 72) {
+                ctx1.fillStyle = 'rgba(251, 191, 36, 0.35)';
+                ctx1.fillRect(833, fl, 56, 48);
+            }
+            // Пирс и оранжево-кедровое каноэ внизу у лифта
+            ctx1.fillStyle = '#451a03'; ctx1.fillRect(775, 672, 125, 14);
+            ctx1.fillStyle = '#ea580c';
+            ctx1.beginPath(); ctx1.ellipse(735, 684, 38, 9, 0.12, 0, Math.PI * 2); ctx1.fill();
+            // Главный стальной мост-дом с двускатной кровлей и теплым светом окон
+            ctx1.fillStyle = '#111827';
+            ctx1.fillRect(310, 232, 710, 20);
+            // Теплый янтарный свет панорамных комнат моста
+            const winG = ctx1.createLinearGradient(330, 165, 980, 232);
+            winG.addColorStop(0, '#f59e0b'); winG.addColorStop(0.5, '#fbbf24'); winG.addColorStop(1, '#d97706');
+            ctx1.fillStyle = winG;
+            ctx1.fillRect(340, 168, 640, 64);
+            // Черные стальные стойки витражей и двускатная крыша шале
+            ctx1.fillStyle = '#0f172a';
+            for (let s = 340; s <= 980; s += 64) ctx1.fillRect(s, 160, 7, 74);
+            ctx1.beginPath(); ctx1.moveTo(295, 172); ctx1.lineTo(660, 172); ctx1.lineTo(845, 118); ctx1.lineTo(1015, 172); ctx1.closePath(); ctx1.fill();
+            // Навес паркинга справа с 3 суперкарами и вертолет на площадке
+            ctx1.fillStyle = '#1e293b'; ctx1.fillRect(1025, 162, 235, 12);
+            ctx1.fillStyle = '#94a3b8'; ctx1.fillRect(1030, 218, 52, 15);
+            ctx1.fillStyle = '#d4af37'; ctx1.fillRect(1105, 218, 52, 15);
+            ctx1.fillStyle = '#475569'; ctx1.fillRect(1178, 218, 55, 15);
+            // Бетонная площадка хелипада и черный вертолет
+            ctx1.fillStyle = '#475569';
+            ctx1.beginPath(); ctx1.moveTo(1040, 315); ctx1.lineTo(1265, 315); ctx1.lineTo(1240, 342); ctx1.lineTo(1015, 342); ctx1.closePath(); ctx1.fill();
+            ctx1.fillStyle = '#090d14';
+            ctx1.beginPath(); ctx1.ellipse(1145, 292, 48, 18, 0, 0, Math.PI * 2); ctx1.fill();
+            ctx1.fillRect(1185, 284, 62, 7);
+            ctx1.strokeStyle = '#cbd5e1'; ctx1.lineWidth = 3;
+            ctx1.beginPath(); ctx1.moveTo(1070, 268); ctx1.lineTo(1220, 268); ctx1.stroke();
+            photoDataUrls['IMG_8463'] = c1.toDataURL('image/jpeg', 0.92);
+
+            // 2. Рендер IMG_8472 (Двусветная гостиная со стеклянным полом над водопадом)
+            const c2 = document.createElement('canvas');
+            c2.width = 1280; c2.height = 720;
+            const ctx2 = c2.getContext('2d');
+            // Фон туманного каньона и водопада за огромными окнами и под стеклянным полом
+            const bg2 = ctx2.createLinearGradient(0, 0, 0, 720);
+            bg2.addColorStop(0, '#c7d2d9'); bg2.addColorStop(0.5, '#3b5249'); bg2.addColorStop(1, '#0f221d');
+            ctx2.fillStyle = bg2; ctx2.fillRect(0, 0, 1280, 720);
+            // Водопад слева (виден сквозь окно и продолжается под стеклянным полом)
+            const wfG = ctx2.createLinearGradient(220, 180, 260, 720);
+            wfG.addColorStop(0, '#ffffff'); wfG.addColorStop(0.5, '#bae6fd'); wfG.addColorStop(1, '#38bdf8');
+            ctx2.fillStyle = wfG;
+            ctx2.beginPath(); ctx2.moveTo(215, 220); ctx2.lineTo(265, 220); ctx2.lineTo(310, 720); ctx2.lineTo(175, 720); ctx2.closePath(); ctx2.fill();
+            // Стеклянный пол в левой половине зала с отражением и стальными балками
+            ctx2.fillStyle = 'rgba(14, 165, 233, 0.16)';
+            ctx2.beginPath(); ctx2.moveTo(0, 455); ctx2.lineTo(460, 445); ctx2.lineTo(680, 720); ctx2.lineTo(0, 720); ctx2.closePath(); ctx2.fill();
+            ctx2.strokeStyle = '#0f172a'; ctx2.lineWidth = 8;
+            ctx2.beginPath(); ctx2.moveTo(0, 520); ctx2.lineTo(520, 495); ctx2.moveTo(0, 615); ctx2.lineTo(605, 585); ctx2.stroke();
+            // Травертиновая стена и массивный камин из черного колотого сланца по центру
+            ctx2.fillStyle = '#cbbba8'; ctx2.fillRect(425, 110, 355, 355);
+            ctx2.fillStyle = '#181c20'; ctx2.fillRect(485, 130, 235, 335);
+            // Топка камина с живым пламенем
+            ctx2.fillStyle = '#07090c'; ctx2.fillRect(515, 360, 175, 68);
+            const fireG = ctx2.createRadialGradient(600, 405, 8, 600, 405, 75);
+            fireG.addColorStop(0, '#fef08a'); fireG.addColorStop(0.5, '#f97316'); fireG.addColorStop(1, 'transparent');
+            ctx2.fillStyle = fireG; ctx2.fillRect(515, 360, 175, 68);
+            // Светлый пушистый ковер, полукруглый диван букле, два кресла букле и мраморный стол с пампасной травой
+            ctx2.fillStyle = '#dfd5c8';
+            ctx2.beginPath(); ctx2.moveTo(465, 480); ctx2.lineTo(1280, 470); ctx2.lineTo(1280, 720); ctx2.lineTo(665, 720); ctx2.closePath(); ctx2.fill();
+            // Полукруглый диван букле справа
+            ctx2.fillStyle = '#ede6dc';
+            ctx2.beginPath(); ctx2.ellipse(1040, 540, 220, 88, 0, 0, Math.PI * 2); ctx2.fill();
+            // Два пышных кресла букле слева на границе стеклянного пола
+            ctx2.fillStyle = '#e5ddd2';
+            ctx2.beginPath(); ctx2.ellipse(510, 560, 78, 58, -0.2, 0, Math.PI * 2); ctx2.fill();
+            // Квадратный журнальный столик с латунным каркасом в центре
+            ctx2.fillStyle = '#292524'; ctx2.fillRect(650, 505, 195, 78);
+            ctx2.strokeStyle = '#d4af37'; ctx2.lineWidth = 4; ctx2.strokeRect(650, 505, 195, 78);
+            // Черные переплеты двухъярусных окон справа
+            ctx2.strokeStyle = '#0f172a'; ctx2.lineWidth = 12;
+            ctx2.beginPath(); ctx2.moveTo(780, 0); ctx2.lineTo(780, 475); ctx2.moveTo(1020, 0); ctx2.lineTo(1020, 475); ctx2.moveTo(780, 210); ctx2.lineTo(1280, 150); ctx2.stroke();
+            photoDataUrls['IMG_8472'] = c2.toDataURL('image/jpeg', 0.92);
+
+            // 3. Рендер IMG_8473 (Парящая Мастер-спальня со стеклянным гардеробом)
+            const c3 = document.createElement('canvas');
+            c3.width = 1280; c3.height = 720;
+            const ctx3 = c3.getContext('2d');
+            // Туманный хвойный каньон сверху и СНИЗУ под парящей платформой пола
+            const bg3 = ctx3.createLinearGradient(0, 0, 0, 720);
+            bg3.addColorStop(0, '#cbd5e1'); bg3.addColorStop(0.55, '#475569'); bg3.addColorStop(1, '#1e293b');
+            ctx3.fillStyle = bg3; ctx3.fillRect(0, 0, 1280, 720);
+            // Кроны елей в тумане в нижней части (под консолью пола спальни)
+            for (let t = 0; t < 26; t++) {
+                ctx3.fillStyle = (t % 2 === 0) ? '#1e3a2f' : '#2d4f42';
+                ctx3.beginPath(); ctx3.moveTo(t * 52, 545 + (t % 3) * 18); ctx3.lineTo(t * 52 - 28, 720); ctx3.lineTo(t * 52 + 28, 720); ctx3.fill();
+            }
+            // Скатный потолок с темными балками и теплыми LED-линиями
+            ctx3.fillStyle = '#26201b';
+            ctx3.beginPath(); ctx3.moveTo(0, 0); ctx3.lineTo(1020, 0); ctx3.lineTo(620, 225); ctx3.lineTo(0, 195); ctx3.closePath(); ctx3.fill();
+            for (let b = 80; b < 880; b += 155) {
+                ctx3.strokeStyle = '#fbbf24'; ctx3.lineWidth = 5;
+                ctx3.beginPath(); ctx3.moveTo(b, 0); ctx3.lineTo(b - 180, 210); ctx3.stroke();
+                ctx3.strokeStyle = '#0f1419'; ctx3.lineWidth = 18;
+                ctx3.beginPath(); ctx3.moveTo(b + 12, 0); ctx3.lineTo(b - 168, 210); ctx3.stroke();
+            }
+            // Парящая деревянная платформа пола из темного ореха (обрывается на высоте Y=535, открывая каньон внизу!)
+            const woodG = ctx3.createLinearGradient(0, 415, 0, 545);
+            woodG.addColorStop(0, '#452715'); woodG.addColorStop(0.7, '#2c180c'); woodG.addColorStop(1, '#090604');
+            ctx3.fillStyle = woodG;
+            ctx3.fillRect(0, 420, 1240, 122);
+            // Высокое графитовое велюровое изголовье с золотым/латунным контуром
+            ctx3.fillStyle = '#1c1f24'; ctx3.fillRect(210, 195, 410, 255);
+            ctx3.strokeStyle = '#d4af37'; ctx3.lineWidth = 4; ctx3.strokeRect(265, 220, 310, 200);
+            // Кровать с темно-серым текстилем на платформе
+            ctx3.fillStyle = '#374151'; ctx3.fillRect(345, 375, 430, 105);
+            ctx3.fillStyle = '#4b5563'; ctx3.fillRect(365, 350, 260, 35);
+            // Стеклянный куб гардеробной walk-in справа с теплой подсветкой полок
+            ctx3.fillStyle = 'rgba(180, 120, 60, 0.32)'; ctx3.fillRect(810, 235, 395, 240);
+            ctx3.strokeStyle = '#0f172a'; ctx3.lineWidth = 10; ctx3.strokeRect(810, 235, 395, 240);
+            for (let sh = 270; sh <= 430; sh += 48) {
+                ctx3.strokeStyle = '#fbbf24'; ctx3.lineWidth = 3;
+                ctx3.beginPath(); ctx3.moveTo(835, sh); ctx3.lineTo(1185, sh); ctx3.stroke();
+            }
+            photoDataUrls['IMG_8473'] = c3.toDataURL('image/jpeg', 0.92);
+
+            // 4. Рендер IMG_8474 (Двусветная Мастер-ванная & SPA у водопада)
+            const c4 = document.createElement('canvas');
+            c4.width = 1280; c4.height = 720;
+            const ctx4 = c4.getContext('2d');
+            // Пол и стены из бежевого травертина + черного мрамора Nero Marquina
+            ctx4.fillStyle = '#14181b'; ctx4.fillRect(0, 0, 1280, 720);
+            // Двухъярусное панорамное окно слева с видом на скалы и водопад в тумане
+            const winSpaG = ctx4.createLinearGradient(190, 20, 640, 580);
+            winSpaG.addColorStop(0, '#d1dce2'); winSpaG.addColorStop(0.45, '#3b5949'); winSpaG.addColorStop(1, '#1a2e26');
+            ctx4.fillStyle = winSpaG; ctx4.fillRect(195, 18, 445, 565);
+            // Струя водопада по центру скального ущелья за окном
+            ctx4.fillStyle = '#e0f2fe';
+            ctx4.beginPath(); ctx4.moveTo(395, 215); ctx4.lineTo(425, 215); ctx4.lineTo(445, 560); ctx4.lineTo(375, 560); ctx4.closePath(); ctx4.fill();
+            // Перемычка из черного мрамора Nero Marquina между этажами окна
+            ctx4.fillStyle = '#0f1317'; ctx4.fillRect(195, 255, 445, 58);
+            // Справа двухэтажная стеклянная паровая душевая (хамам) с латунными лейками и травертином
+            ctx4.fillStyle = '#cbb89d'; ctx4.fillRect(1110, 0, 170, 720);
+            ctx4.fillStyle = 'rgba(28, 34, 38, 0.88)'; ctx4.fillRect(745, 18, 365, 625);
+            ctx4.strokeStyle = '#d4af37'; ctx4.lineWidth = 4; ctx4.strokeRect(745, 275, 365, 365);
+            // Латунные подвесные светильники сверху справа
+            ctx4.fillStyle = '#fbbf24';
+            ctx4.fillRect(1035, 15, 12, 95); ctx4.fillRect(1080, 25, 12, 115); ctx4.fillRect(1145, 10, 12, 85);
+            // Пол из светлого травертина
+            ctx4.fillStyle = '#d6c7b2';
+            ctx4.beginPath(); ctx4.moveTo(110, 600); ctx4.lineTo(745, 575); ctx4.lineTo(1280, 680); ctx4.lineTo(1280, 720); ctx4.lineTo(110, 720); ctx4.closePath(); ctx4.fill();
+            // Монолитная овальная матовая черная каменная ванна перед окном с водопадом
+            ctx4.fillStyle = '#1c2127';
+            ctx4.beginPath(); ctx4.ellipse(425, 608, 225, 62, -0.04, 0, Math.PI * 2); ctx4.fill();
+            ctx4.fillStyle = '#38bdf8';
+            ctx4.beginPath(); ctx4.ellipse(425, 582, 195, 22, -0.04, 0, Math.PI * 2); ctx4.fill();
+            // Латунный напольный смеситель у ванны
+            ctx4.strokeStyle = '#d4af37'; ctx4.lineWidth = 7;
+            ctx4.beginPath(); ctx4.moveTo(395, 565); ctx4.lineTo(395, 525); ctx4.lineTo(425, 525); ctx4.stroke();
+            photoDataUrls['IMG_8474'] = c4.toDataURL('image/jpeg', 0.92);
+
+            applyPhotosToAllDomSlots();
+        }
+
+        // Применение текущих изображений ко всем тегам <img data-photo-slot="...">
+        function applyPhotosToAllDomSlots() {
+            document.querySelectorAll('img[data-photo-slot]').forEach(img => {
+                const slot = img.getAttribute('data-photo-slot');
+                if (photoDataUrls[slot]) {
+                    img.src = photoDataUrls[slot];
+                }
+            });
+        }
+
+        // Пакетная загрузка оригинальных фотографий пользователя (IMG_8463, IMG_8472, IMG_8473, IMG_8474)
+        function handleBatchPhotoUpload(event) {
+            const files = Array.from(event.target.files || []);
+            if (!files.length) return;
+
+            const slotKeys = ['IMG_8463', 'IMG_8472', 'IMG_8473', 'IMG_8474'];
+            files.forEach((file, idx) => {
+                const nameUpper = file.name.toUpperCase();
+                let targetSlot = slotKeys[idx % 4];
+                if (nameUpper.includes('8463')) targetSlot = 'IMG_8463';
+                else if (nameUpper.includes('8472') || nameUpper.includes('8475')) targetSlot = 'IMG_8472';
+                else if (nameUpper.includes('8473')) targetSlot = 'IMG_8473';
+                else if (nameUpper.includes('8474')) targetSlot = 'IMG_8474';
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    photoDataUrls[targetSlot] = e.target.result;
+                    applyPhotosToAllDomSlots();
+                    if (currentLightboxKey === targetSlot) {
+                        document.getElementById('lightboxMainImage').src = e.target.result;
+                    }
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // Загрузка одного фото прямо из открытого лайтбокса
+        let currentLightboxKey = 'IMG_8463';
+        function uploadSinglePhotoForCurrentLightbox(event) {
+            const file = event.target.files && event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                photoDataUrls[currentLightboxKey] = e.target.result;
+                applyPhotosToAllDomSlots();
+                document.getElementById('lightboxMainImage').src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // ОТКРЫТИЕ И НАВИГАЦИЯ ПО МОДАЛЬНОМУ ЛАЙТБОКСУ 4 ФОТОГРАФИЙ
+        function openPhotoLightbox(key) {
+            currentLightboxKey = key;
+            const item = PHOTO_ARCHIVE[key];
+            if (!item) return;
+
+            document.getElementById('lightboxCode').textContent = item.code;
+            document.getElementById('lightboxTitle').textContent = item.title;
+            document.getElementById('lightboxSubtitle').textContent = item.subtitle;
+            document.getElementById('lightboxDescription').textContent = item.description;
+            document.getElementById('lightboxMainImage').src = photoDataUrls[key];
+
+            const specsContainer = document.getElementById('lightboxSpecs');
+            specsContainer.innerHTML = item.specs.map(s => `
+                <div class="p-2.5 rounded-xl bg-white/[0.04] border border-white/10 text-xs text-slate-200 flex items-start gap-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-brass-400 mt-1.5 shrink-0"></span>
+                    <span>${s}</span>
+                </div>
+            `).join('');
+
+            const modal = document.getElementById('photoLightboxModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            initIconsSafely();
+        }
+
+        function closePhotoLightbox() {
+            const modal = document.getElementById('photoLightboxModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function stepLightbox(dir) {
+            const keys = ['IMG_8463', 'IMG_8472', 'IMG_8473', 'IMG_8474'];
+            const idx = keys.indexOf(currentLightboxKey);
+            const nextIdx = (idx + dir + keys.length) % keys.length;
+            openPhotoLightbox(keys[nextIdx]);
+        }
+
+        // СНЯТИЕ БЛОКИРОВКИ NDA LEVEL 5
+        function unlockNDA() {
+            const lock = document.getElementById('ndaLockScreen');
+            lock.classList.add('opacity-0', 'pointer-events-none');
+            setTimeout(() => lock.classList.add('hidden'), 500);
+        }
+
+        // ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК ОС
+        function switchAppTab(tabId) {
+            document.querySelectorAll('.app-tab-section').forEach(sec => sec.classList.add('hidden'));
+            const target = document.getElementById('tab-' + tabId);
+            if (target) target.classList.remove('hidden');
+
+            document.querySelectorAll('#desktopNav .app-nav-btn').forEach(btn => {
+                const isMatch = btn.getAttribute('data-tab') === tabId;
+                btn.className = isMatch
+                    ? 'app-nav-btn w-full flex items-center gap-3 px-3.5 py-3 rounded-xl font-medium text-sm text-left transition-all bg-brass-500/20 text-brass-300 border border-brass-400/40'
+                    : 'app-nav-btn w-full flex items-center gap-3 px-3.5 py-3 rounded-xl font-medium text-sm text-left text-slate-300 hover:bg-white/5 border border-transparent transition-all';
+            });
+            initIconsSafely();
+        }
+
+        // УПРАВЛЕНИЕ 54-МЕТРОВЫМ ПАНОРАМНЫМ ЛИФТОМ (L5 -> L0)
+        const elevatorOffsets = { 5: 0, 4: 52, 3: 108, 2: 164, 1: 220, 0: 274 };
+        const elevatorNames = {
+            5: 'Уровень L5 (Пролет моста +54м)',
+            4: 'Уровень L4 (Смотровая шахты +42м)',
+            3: 'Уровень L3 (Средний бьеф +31м)',
+            2: 'Уровень L2 (Узел подкоса +20м)',
+            1: 'Уровень L1 (Каньон +10м)',
+            0: 'Уровень L0 (Речной пирс с каноэ 0.0м)'
+        };
+
+        function moveElevator(lvl) {
+            const cab = document.getElementById('svgElevatorCab');
+            const label = document.getElementById('svgElevatorLabel');
+            const badge = document.getElementById('elevatorLevelBadge');
+            if (cab) cab.setAttribute('transform', `translate(0, ${elevatorOffsets[lvl]})`);
+            if (label) label.textContent = 'L' + lvl;
+            if (badge) badge.textContent = elevatorNames[lvl];
+        }
+
+        // УПРАВЛЕНИЕ ПРОЗРАЧНОСТЬЮ СТЕКЛЯННОГО ПОЛА НАД ВОДОПАДОМ (IMG_8472)
+        function updateGlassFloorOpacity(val) {
+            const rect = document.getElementById('svgGlassFloorRect');
+            const label = document.getElementById('glassFloorValue');
+            const op = (0.15 + (val / 100) * 0.7).toFixed(2);
+            if (rect) rect.setAttribute('fill-opacity', op);
+            if (label) label.textContent = val + '% Прозрачный';
+        }
+
+        // ПЕРЕКЛЮЧАТЕЛЬ РЕЖИМА STEALTH MODE
+        let stealthOn = false;
+        function toggleGlobalStealth() {
+            stealthOn = !stealthOn;
+            document.body.classList.toggle('stealth-active', stealthOn);
+            const txt = document.getElementById('stealthStatusText');
+            if (txt) txt.textContent = stealthOn ? 'STEALTH: ON (IR-MASK)' : 'STEALTH: OFF';
+            document.querySelectorAll('.interior-glow-rect').forEach(r => {
+                r.setAttribute('opacity', stealthOn ? '0.28' : '1');
+            });
+        }
+
+        // БЫСТРЫЕ ТУМБЛЕРЫ СЦЕНАРИЕВ
+        function toggleFireplaceState() {
+            const btn = document.getElementById('btnFireplace');
+            btn.classList.toggle('opacity-60');
+        }
+        function toggleSpaSteamState() {
+            const btn = document.getElementById('btnSpaSteam');
+            btn.classList.toggle('opacity-60');
+        }
+        function toggleHelipadHeating() {
+            const btn = document.getElementById('btnHelipadHeat');
+            btn.classList.toggle('opacity-60');
+        }
+
+        // ДАННЫЕ 5 ФАЗ СТРОИТЕЛЬСТВА С ФОТОФИКСАЦИЕЙ
+        const constructionPhases = [
+            {
+                title: 'Фаза 01: Алмазная выемка опорных ниш и бурение 64 скальных анкеров DYWIDAG',
+                photo: 'IMG_8463',
+                desc: 'Лазерное сканирование базальтовых берегов ущелья, бурение наклонных скважин глубиной 30 м в оба берега и формирование пяты под диагональный стальной подкос 42 м на левом утесе.',
+                metrics: '64 преднапряженных анкера • Запас прочности K = 3.1'
+            },
+            {
+                title: 'Фаза 02: Надвижка 68-метрового стального пролета и монтаж диагонального подкоса',
+                photo: 'IMG_8463',
+                desc: 'Крупноузловая сборка коробчатых балок из мостовой стали S460ML, соединение с диагональной распорной фермой и возведение 54-метровой вертикальной шахты лифта к речному пирсу.',
+                metrics: 'Масса металлоконструкций: 680 тонн • Испытание вертодрома H1'
+            },
+            {
+                title: 'Фаза 03: Монтаж 5-слойного стеклянного пола над водопадом и сланцевого камина',
+                photo: 'IMG_8472',
+                desc: 'Укладка джамбо-пакетов структурного триплекса SentryGlas 82 мм над каскадом водопада и облицовка центрального каминного ядра черным колотым сланцем и травертином.',
+                metrics: 'Расчетная нагрузка пола: 1 500 кг/м² • Витражи высотой 6.8 м'
+            },
+            {
+                title: 'Фаза 04: Сборка «парящей платформы» Мастер-спальни и стеклянного куба гардеробной',
+                photo: 'IMG_8473',
+                desc: 'Монтаж консольной палубы из американского ореха с выносом нижнего ряда остекления под кровать, интеграция линейного света в балки кровли и сборка гардеробного бокса.',
+                metrics: 'Звукоизоляция Rw = 62 дБ • Обогрев нижнего витража ThermoGlass'
+            },
+            {
+                title: 'Фаза 05: Установка 920-кг базальтовой ванны у окна на водопад и пусконаладка SPA',
+                photo: 'IMG_8474',
+                desc: 'Крановая подача цельной каменной купели к двухъярусному окну SPA-зоны, облицовка стен травертином и мрамором Nero Marquina, монтаж латунных тропических душей и парогенератора.',
+                metrics: 'Водозабор: артезианская скважина 180 м • Готовность 100%'
+            }
+        ];
+
+        function selectConstructionPhase(idx) {
+            const p = constructionPhases[idx];
+            document.querySelectorAll('.phase-btn').forEach((b, i) => {
+                b.className = (i === idx)
+                    ? 'phase-btn p-3 rounded-xl border border-brass-400 bg-brass-500/20 text-left font-mono text-xs text-brass-300 font-bold'
+                    : 'phase-btn p-3 rounded-xl border border-white/10 bg-white/5 text-left font-mono text-xs text-slate-400';
+            });
+
+            const box = document.getElementById('constructionPhaseDetail');
+            box.innerHTML = `
+                <div class="grid sm:grid-cols-12 gap-5 items-center">
+                    <div class="sm:col-span-5 relative rounded-xl overflow-hidden border border-brass-400/30 h-48 cursor-pointer" onclick="openPhotoLightbox('${p.photo}')">
+                        <img data-photo-slot="${p.photo}" src="${photoDataUrls[p.photo]}" alt="${p.photo}" class="w-full h-full object-cover">
+                        <span class="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-black/80 font-mono text-[10px] text-brass-300">ФОТОФИКСАЦИЯ: ${p.photo}</span>
+                    </div>
+                    <div class="sm:col-span-7 space-y-3">
+                        <h4 class="font-serif text-xl font-bold text-white">${p.title}</h4>
+                        <p class="text-xs text-slate-300 leading-relaxed">${p.desc}</p>
+                        <div class="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 font-mono text-[11px] text-emerald-300">
+                            ${p.metrics}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // СИМУЛЯЦИЯ ВЕТРОВОГО ИМПУЛЬСА НА ДАТЧИКАХ КР
+        function simulateWindGust() {
+            document.getElementById('strainStrutVal').textContent = '548.0 тс (Пик ветра 32 м/с)';
+            document.getElementById('strainStrutBar').style.width = '64%';
+            document.getElementById('strainGlassVal').textContent = '1.64 мм (Стабильно)';
+            document.getElementById('strainGlassBar').style.width = '36%';
+            setTimeout(() => {
+                document.getElementById('strainStrutVal').textContent = '412.4 тс (Норма < 950 тс)';
+                document.getElementById('strainStrutBar').style.width = '43%';
+                document.getElementById('strainGlassVal').textContent = '1.18 мм (Допуск L/600)';
+                document.getElementById('strainGlassBar').style.width = '24%';
+            }, 3000);
+        }
+
+        // ПЕРЕКЛЮЧЕНИЕ ОПТИЧЕСКОГО / NVG / FLIR РЕЖИМОВ КАМЕР
+        function setCameraVisionMode(mode) {
+            document.querySelectorAll('.cctv-feed-img').forEach(img => {
+                img.classList.remove('cam-filter-nvg', 'cam-filter-flir');
+                if (mode === 'nvg') img.classList.add('cam-filter-nvg');
+                if (mode === 'flir') img.classList.add('cam-filter-flir');
+            });
+        }
+
+        // КАЛЬКУЛЯТОР ЭСКРОУ-СМЕТЫ
+        function recalcEscrow() {
+            let total = 12.5;
+            if (document.getElementById('finOptGlassFloor').checked) total += 2.1;
+            if (document.getElementById('finOptMaster').checked) total += 1.9;
+            if (document.getElementById('finOptSpa').checked) total += 1.9;
+            document.getElementById('escrowTotalDisplay').textContent = '$' + total.toFixed(1) + 'M';
+        }
+
+        // ЗАШИФРОВАННЫЙ ЧАТ С ГЛАВНЫМ ИНЖЕНЕРОМ
+        function sendEncryptedChat(e) {
+            e.preventDefault();
+            const input = document.getElementById('chatInput');
+            const text = input.value.trim();
+            if (!text) return;
+
+            const box = document.getElementById('chatMessages');
+            box.innerHTML += `
+                <div class="p-3 rounded-2xl bg-brass-500/20 border border-brass-400/40 text-white ml-auto max-w-[85%]">
+                    <div class="font-mono text-[10px] text-brass-300 mb-1">ВЛАДЕЛЕЦ (NDA-5)</div>
+                    ${text}
+                </div>
+            `;
+            input.value = '';
+            setTimeout(() => {
+                box.innerHTML += `
+                    <div class="p-3 rounded-2xl bg-white/5 border border-white/10 text-slate-200 max-w-[88%]">
+                        <div class="font-mono text-[10px] text-emerald-400 mb-1">ГЛАВНЫЙ ИНЖЕНЕР // АВТООТВЕТ КР</div>
+                        Принято в протокол. Узел сверен с фотодосье (IMG_8463–8474) и включен в спецификацию закрытого контура.
+                    </div>
+                `;
+                box.scrollTop = box.scrollHeight;
+            }, 600);
+        }
+
+        // Инициализация при старте
+        window.addEventListener('DOMContentLoaded', () => {
+            generatePhotorealisticCanvasRenders();
+            selectConstructionPhase(0);
+            initIconsSafely();
+        });
+    </script>
+</body>
+</html>
